@@ -127,12 +127,12 @@ P2
 
 	CStringA strFilename1;
 	strFilename1.Format("Images\\Export%.5d.pgm", s_iFileIteration++);
-	CFile oFile1(CString(strFilename1), CFile::modeCreate | CFile::modeReadWrite);
+	//CFile oFile1(CString(strFilename1), CFile::modeCreate | CFile::modeReadWrite);
 
-	CStringA strHeaderFormat;
-	strHeaderFormat.Format(("P2 %d %d %d \n"), p_iWidth, p_iHeight, iMassStep - 1);
+	//CStringA strHeaderFormat;
+	//strHeaderFormat.Format(("P2 %d %d %d \n"), p_iWidth, p_iHeight, iMassStep - 1);
 	
-	oFile1.Write(strHeaderFormat, strHeaderFormat.GetLength());
+	//oFile1.Write(strHeaderFormat, strHeaderFormat.GetLength());
 
 	// Knowing min x and max x, divided by 1024 will represent the x step
 	// Knowing min y and max y, divided by 768 will represent the y step
@@ -164,11 +164,11 @@ P2
 
 	for (int y = 0; y < p_iHeight; y++)
 	{
-		CStringA strLine;
+		//CStringA strLine;
 		for (int x = 0; x < p_iWidth; x++)
 		{
 			int iValue = min(poMatrix[x + (y * p_iWidth)], 15);
-			strLine.AppendFormat(("%d "), iValue);	// Could overflow if multiple mass are in the same spot.
+			//strLine.AppendFormat(("%d "), iValue);	// Could overflow if multiple mass are in the same spot.
 
 			if (iValue > 0)
 			{
@@ -185,15 +185,15 @@ P2
 			buf[c + 2] = (BYTE)iValue;
 			c += 3;
 		}
-		strLine.AppendFormat(("\n"));
+		//strLine.AppendFormat(("\n"));
 
-		oFile1.Write(strLine.GetBuffer(), strLine.GetLength() );
+		//oFile1.Write(strLine.GetBuffer(), strLine.GetLength() );
 	}
 
 	// Test
 	//ExportBitmap(poMatrix);
 
-	strFilename1.Replace("pgm", "bmp");
+	/*strFilename1.Replace("pgm", "bmp");
 	CString strToto = strFilename1.AllocSysString();
 	SaveBitmapToFile((BYTE*)buf,
 		p_iWidth,
@@ -201,7 +201,14 @@ P2
 		24,
 		0,
 		strToto);
-
+*/
+	CString test = _T("c:\\temp\\t.bmp");
+		SaveBitmapToFile((BYTE*)buf,
+			p_iWidth,
+			p_iHeight,
+			24,
+			0,
+			test);
 	delete[] buf;
 	delete[] poMatrix;
 }
@@ -220,148 +227,6 @@ void Universe::SimulateFrom(const Universe& p_roUniverse, int p_iStepSize)
 		Mass& roMass = m_arrMasses.GetAt(i);
 		roMass.EffectuerPasChangementPosition(p_iStepSize);
 	}
-}
-
-//void DessinerEtoiles(const CString& elementAAfficher)
-//{
-//	CDC* dc = GetDC(NULL);
-//	CRect rect;
-//	GetClientRect( rect );  // Taille dessinable
-//
-//	CBrush brush;
-//	brush.CreateSolidBrush(RGB(255, 255, 255));
-//	dc->FillRect(&rect, &brush);
-//
-//  double minX = 0.0;
-//  double minY = 0.0;
-//  double minZ = 0.0;
-//  double maxX = 0.0;
-//  double maxY = 0.0;
-//  double maxZ = 0.0;
-//
-//  AScEtoile::ObtenirDimensionUniversXYZ( minX, maxX, minY, maxY, minZ, maxZ);
-//
-//  CString supplement;
-//  supplement.Format(L" Dimension de l'univers en KM: x:%e y:%e", maxX-minX, maxY-minY);
-//
-//	if( !elementAAfficher.IsEmpty() )
-//	{
-//		dc->DrawText( elementAAfficher + supplement, rect, NULL );
-//	}
-//
-//  TRACE("\nRECT:%d %d ", rect.left, rect.right);
-//
-//
-//	//static int compteur = 0;
-//
-//	//CString texte;
-//	//texte.Format( _T("%d"), compteur++ );
-//	//if( 0 == (compteur % 1 ) )
-//	//{
-//	//	dc->DrawText( texte, rect, NULL );
-//	//}
-//
-//
-//const double largeurUniversVisible = maxX - minX;
-//const double hauteurUniversVisible = maxY - minY;
-//
-//int marge = 10;
-//if (rect.Width() / 2 < marge ||
-//	rect.Height() / 2 < marge)
-//{
-//	marge = 0;
-//}
-//
-//for (int i = 0; i < AScEtoile::ms_Etoiles.GetSize(); i++)
-//{
-//	AScEtoile* uneEtoile = AScEtoile::ms_Etoiles.GetAt(i);
-//	double proportionX = (uneEtoile->m_X - minX) / largeurUniversVisible; // Résultat entre 0 et 1.
-//	double proportionY = (uneEtoile->m_Y - minY) / hauteurUniversVisible; // Résultat entre 0 et 1.
-//
-//	int positionXDansRect = marge + rect.left + ((rect.Width() - (2 * marge)) * proportionX);
-//	int positionYDansRect = marge + rect.top + ((rect.Height() - (2 * marge)) * proportionY);
-//
-//	TRACE(uneEtoile->ObtainTextDetails());
-//	TRACE(elementAAfficher);
-//	dc->MoveTo(positionXDansRect, positionYDansRect);
-//
-//	int dist = 20.0 * uneEtoile->m_MasseKG / (double)MASSE_SOLEIL;
-//
-//	dist = max(dist, 5);
-//	CPoint hg(positionXDansRect - dist, positionYDansRect - dist);
-//	CPoint bd(positionXDansRect + dist + 2, positionYDansRect + dist + 2);
-//	CRect rect(hg, bd);
-//
-//	dc->Ellipse(rect);
-//}
-//}
-//
-//void OnTimer(UINT nIDEvent)
-//{
-//	static COleDateTime momentPresent(2000, 1, 1, 0, 0, 1);
-//	static bool enCours = false;
-//	if (true == enCours)
-//	{
-//		return;
-//	}
-//
-//	enCours = true;
-//
-//	const int avant = GetTickCount();
-//
-//	for (int i = 0; i < K_NombrePasParRefresh; i++)
-//	{
-//		PasDeSimulation(K_PasDeSimulationEnSeconde);
-//	}
-//
-//	momentPresent += COleDateTimeSpan(0, 0, 0, K_PasDeSimulationEnSeconde * K_NombrePasParRefresh);
-//
-//	const int delais = GetTickCount() - avant;
-//	CString tempsRequis;
-//	tempsRequis.Format(_T("Temps Requis pour ce pas (%d iterations) %5.5dms   "), K_NombrePasParRefresh, delais);
-//	tempsRequis += momentPresent.Format(VAR_DATEVALUEONLY);
-//
-//	CString heureTailleFixe = CString("            ") + momentPresent.Format(VAR_TIMEVALUEONLY);
-//
-//	tempsRequis += heureTailleFixe.Right(10);
-//
-//	int toto = tempsRequis.GetLength();
-//
-//	GetParent()->SetWindowText(tempsRequis);
-//	DessinerEtoiles(tempsRequis);
-//
-//	CView::OnTimer(nIDEvent);
-//	enCours = false;
-//}
-//
-//void OnShowWindow(BOOL bShow, UINT nStatus)
-//{
-//	CView::OnShowWindow(bShow, nStatus);
-//
-//	SetTimer(1, K_PauseEntreChaquePas, NULL);
-//}
-//
-//void PasDeSimulation(int in_NombreSeconde)
-//{
-//	for (int i = 0; i < AScEtoile::ms_Etoiles.GetSize(); i++)
-//	{
-//		AScEtoile* uneEtoile = (AScEtoile*)AScEtoile::ms_Etoiles.GetAt(i);
-//		uneEtoile->EffectuerPasChangementPosition(in_NombreSeconde);
-//	}
-//
-//	// Pour chacune des étoiles, faire le calcul de changement de vitesse par rapport aux autres étoiles.
-//	for (int i = 0; i < AScEtoile::ms_Etoiles.GetSize(); i++)
-//	{
-//		AScEtoile* uneEtoile = (AScEtoile*)AScEtoile::ms_Etoiles.GetAt(i);
-//		uneEtoile->EffectuerPasChangementVitesse(in_NombreSeconde);
-//	}
-//}
-
-void Universe::ExportBitmap()
-{
-	CBitmap oBitmap;
-
-	oBitmap.SetBitmapDimension(1024, 1024);
 }
 
 void Universe::SaveBitmapToFile(BYTE* pBitmapBits,
@@ -424,7 +289,7 @@ void Universe::SaveBitmapToFile(BYTE* pBitmapBits,
 	// Create the file in disk to write
 	HANDLE hFile = CreateFile(lpszFileName,
 		GENERIC_WRITE,
-		0,
+		FILE_SHARE_READ,
 		NULL,
 		CREATE_ALWAYS,
 		FILE_ATTRIBUTE_NORMAL,

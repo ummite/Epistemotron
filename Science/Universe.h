@@ -15,7 +15,6 @@ public:
 	Universe* GenerateSimulationStep(int p_iStepSize);
 	Mass& GetAt(int p_iPos)										{ return m_arrMasses.GetAt(p_iPos); }
 	void ExportPPM(int p_iWidth = 512, int p_iHeight = 512);
-	void ExportBitmap();
 
 	void SimulateFrom(const Universe& p_roUniverse, int p_iStepSize);
 

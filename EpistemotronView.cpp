@@ -16,6 +16,7 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+#include "Science/Simulator.h"
 
 
 // CEpistemotronView
@@ -36,7 +37,6 @@ END_MESSAGE_MAP()
 CEpistemotronView::CEpistemotronView() noexcept
 {
 	// TODO: add construction code here
-
 }
 
 CEpistemotronView::~CEpistemotronView()
@@ -45,27 +45,33 @@ CEpistemotronView::~CEpistemotronView()
 
 BOOL CEpistemotronView::PreCreateWindow(CREATESTRUCT& cs)
 {
-	// TODO: Modify the Window class or styles here by modifying
-	//  the CREATESTRUCT cs
-
 	return CView::PreCreateWindow(cs);
 }
 
 // CEpistemotronView drawing
 
-void CEpistemotronView::OnDraw(CDC* /*pDC*/)
+void CEpistemotronView::OnDraw(CDC* pDC/*pDC*/)
 {
 	CEpistemotronDoc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
 	if (!pDoc)
 		return;
 
-	// TODO: add draw code for native data here
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	static bool s_bBoolFirstTime = true;
+	if (s_bBoolFirstTime)
+	{
+		s_bBoolFirstTime = false;
+		Simulator s;
+		s.Test(this);
+		//CMyView MyViewObject;
+		HWND MyHandle = GetSafeHwnd();
+		this->PostMessageW(WM_PAINT, (WPARAM)this);
+	}
 }
-
-
-// CEpistemotronView printing
-
 
 void CEpistemotronView::OnFilePrintPreview()
 {
@@ -124,5 +130,20 @@ CEpistemotronDoc* CEpistemotronView::GetDocument() const // non-debug version is
 }
 #endif //_DEBUG
 
+void CEpistemotronView::RefreshThisShit()
+{
+	if (this->GetWindowDC() != NULL &&
+		this->IsWindowVisible() &&
+		this->IsWindowEnabled())
+	{
+		CDC* pDC = GetDC();
+		CRect rect;
+		GetClientRect(&rect);
 
-// CEpistemotronView message handlers
+		CImage image;
+		image.Load(_T("C:\\Temp\\t.bmp"));
+		CRect rcRect;
+		this->GetWindowRect(rcRect);
+		image.Draw(pDC->GetSafeHdc(), rcRect);
+	}
+}

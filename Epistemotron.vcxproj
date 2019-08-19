@@ -200,6 +200,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="PropertiesWnd.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="resource1.h" />
     <ClInclude Include="Science\Environment.h" />
     <ClInclude Include="Science\Mass.h" />
     <ClInclude Include="Science\Simulator.h" />
@@ -231,6 +232,7 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Epistemotron.rc" />
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\classview.bmp" />

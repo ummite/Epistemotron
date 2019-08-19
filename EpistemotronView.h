@@ -4,6 +4,7 @@
 
 #pragma once
 
+class CEpistemotronDoc;
 
 class CEpistemotronView : public CView
 {
@@ -17,6 +18,8 @@ public:
 
 // Operations
 public:
+
+	void RefreshThisShit();
 
 // Overrides
 public:

@@ -30,8 +30,6 @@ END_MESSAGE_MAP()
 
 CEpistemotronDoc::CEpistemotronDoc() noexcept
 {
-	// TODO: add one-time construction code here
-
 }
 
 CEpistemotronDoc::~CEpistemotronDoc()

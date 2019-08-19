@@ -145,9 +145,6 @@ BOOL CEpistemotronApp::InitInstance()
 	pMainFrame->ShowWindow(m_nCmdShow);
 	pMainFrame->UpdateWindow();
 
-	Simulator s;
-	s.Test();
-
 	return TRUE;
 }
 
