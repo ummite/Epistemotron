@@ -17,7 +17,6 @@ Universe::Universe(int m_iMasses) :
 
 Universe::~Universe()
 {
-
 }
 
 Universe* Universe::GenerateSimulationStep(int p_iStepSize)
@@ -43,58 +42,6 @@ void Universe::ExportPPM(int p_iWidth, int p_iHeight)
 	// We will take mass at position 0 as the center of the universe.
 
 	double dblMaxMass = 0;
-	/*double dblMinX = m_arrMasses.GetAt(0).m_X;
-	double dblMaxX = m_arrMasses.GetAt(0).m_X;
-	double dblMinY = m_arrMasses.GetAt(0).m_Y;
-	double dblMaxY = m_arrMasses.GetAt(0).m_Y;
-	double dblMinZ = m_arrMasses.GetAt(0).m_Z;
-	double dblMaxZ = m_arrMasses.GetAt(0).m_Z;
-
-	for (int i = 0; i < m_arrMasses.GetSize(); i++)
-	{
-		const Mass& roMass = m_arrMasses.GetAt(i);
-		if (roMass.m_MasseKG > dblMaxMass)
-		{
-			dblMaxMass = roMass.m_MasseKG;
-		}
-
-		dblMinX = min(dblMinX, roMass.m_X);
-		dblMaxX = max(dblMaxX, roMass.m_X);
-
-		dblMinY = min(dblMinY, roMass.m_Y);
-		dblMaxY = max(dblMaxY, roMass.m_Y);
-
-		dblMinZ = min(dblMinZ, roMass.m_Z);
-		dblMaxZ = max(dblMaxZ, roMass.m_Z);
-	}
-
-	const Mass& roUniverseCenter = m_arrMasses.GetAt(0);
-	if ((dblMaxX - roUniverseCenter.m_X) > (roUniverseCenter.m_X - dblMinX))
-	{
-		dblMinX = roUniverseCenter.m_X - (dblMaxX - roUniverseCenter.m_X);
-	}
-	else
-	{
-		dblMaxX = roUniverseCenter.m_X + (roUniverseCenter.m_X - dblMinX);
-	}
-
-	if ((dblMaxY - roUniverseCenter.m_Y) > (roUniverseCenter.m_Y - dblMinY))
-	{
-		dblMinY = roUniverseCenter.m_Y - (dblMaxY - roUniverseCenter.m_Y);
-	}
-	else
-	{
-		dblMaxY = roUniverseCenter.m_Y + (roUniverseCenter.m_Y - dblMinY);
-	}
-
-	if ((dblMaxZ - roUniverseCenter.m_Z) > (roUniverseCenter.m_Z - dblMinZ))
-	{
-		dblMinZ = roUniverseCenter.m_Z - (dblMaxZ - roUniverseCenter.m_Z);
-	}
-	else
-	{
-		dblMaxZ = roUniverseCenter.m_Z + (roUniverseCenter.m_Z - dblMinZ);
-	}*/
 
 	const Mass& roUniverseCenter = m_arrMasses.GetAt(0);
 
@@ -125,8 +72,8 @@ P2
 
 	static int s_iFileIteration = 0;
 
-	CStringA strFilename1;
-	strFilename1.Format("Images\\Export%.5d.pgm", s_iFileIteration++);
+	//CStringA strFilename1;
+	//strFilename1.Format("Images\\Export%.5d.pgm", s_iFileIteration++);
 	//CFile oFile1(CString(strFilename1), CFile::modeCreate | CFile::modeReadWrite);
 
 	//CStringA strHeaderFormat;
@@ -139,9 +86,11 @@ P2
 
 	//double dblXStep = (dblMaxX - dblMinX) / p_iWidth;
 	//double dblYStep = (dblMaxY - dblMinY) / p_iHeight;
-	
-	double dblXStep = (1.4142 * 2.0 * dblDistanceMax) / p_iWidth;
-	double dblYStep = (1.4142 * 2.0 * dblDistanceMax) / p_iHeight;
+
+	double dblZoom = 1.4142;
+
+	double dblXStep = (dblZoom * 2.0 * dblDistanceMax) / p_iWidth;
+	double dblYStep = (dblZoom * 2.0 * dblDistanceMax) / p_iHeight;
 	double dblMinX = roUniverseCenter.m_X - (dblXStep * p_iWidth / 2);
 	double dblMaxX = roUniverseCenter.m_X + (dblXStep * p_iWidth / 2);
 	double dblMinY = roUniverseCenter.m_Y - (dblYStep * p_iHeight / 2);
@@ -149,7 +98,7 @@ P2
 
 	double dblMassStep = dblMaxMass / iMassStep;
 
-	int* poMatrix = new int[p_iWidth * p_iHeight] {};
+	int* poMatrix = new int[p_iWidth * p_iHeight * 2] {};
 
 	for (int i = 0; i < m_arrMasses.GetSize(); i++)
 	{
@@ -159,56 +108,33 @@ P2
 		poMatrix[x + (y * p_iWidth)] += 15; //1 + (int)(roMass.m_MasseKG / dblMassStep);
 	}
 
-	BYTE* buf = new BYTE[3 * p_iWidth * p_iHeight];
+	BYTE* buf = new BYTE[3 * p_iWidth * p_iHeight * 2] {};
 	int c = 0;
 
 	for (int y = 0; y < p_iHeight; y++)
 	{
-		//CStringA strLine;
 		for (int x = 0; x < p_iWidth; x++)
 		{
 			int iValue = min(poMatrix[x + (y * p_iWidth)], 15);
-			//strLine.AppendFormat(("%d "), iValue);	// Could overflow if multiple mass are in the same spot.
 
 			if (iValue > 0)
 			{
 				iValue = 255;
-				buf[c + 0 - 3] = (BYTE)iValue;
-				buf[c + 1 - 3] = (BYTE)iValue;
-				buf[c + 2 - 3] = (BYTE)iValue;
-				buf[c + 0 + 3] = (BYTE)iValue;
-				buf[c + 1 + 3] = (BYTE)iValue;
-				buf[c + 2 + 3] = (BYTE)iValue;
 			}
 			buf[c + 0] = (BYTE)iValue;
 			buf[c + 1] = (BYTE)iValue;
 			buf[c + 2] = (BYTE)iValue;
 			c += 3;
 		}
-		//strLine.AppendFormat(("\n"));
-
-		//oFile1.Write(strLine.GetBuffer(), strLine.GetLength() );
 	}
 
-	// Test
-	//ExportBitmap(poMatrix);
-
-	/*strFilename1.Replace("pgm", "bmp");
-	CString strToto = strFilename1.AllocSysString();
+	CString test = _T("c:\\temp\\t.bmp");
 	SaveBitmapToFile((BYTE*)buf,
 		p_iWidth,
 		p_iHeight,
 		24,
 		0,
-		strToto);
-*/
-	CString test = _T("c:\\temp\\t.bmp");
-		SaveBitmapToFile((BYTE*)buf,
-			p_iWidth,
-			p_iHeight,
-			24,
-			0,
-			test);
+		test);
 	delete[] buf;
 	delete[] poMatrix;
 }

@@ -1,23 +1,10 @@
-﻿  pch.cpp
-  ChildFrm.cpp
-  ClassView.cpp
-  Epistemotron.cpp
-  EpistemotronDoc.cpp
-  EpistemotronView.cpp
-  FileView.cpp
-  MainFrm.cpp
-  OutputWnd.cpp
-  PropertiesWnd.cpp
-  Environment.cpp
-  Mass.cpp
-  Simulator.cpp
-  Universe.cpp
-C:\Programmation\EPISTEMOTRON\Epistemotron\Science\Universe.cpp(25,57): warning C4244:  'argument': conversion from 'INT_PTR' to 'int', possible loss of data
-C:\Programmation\EPISTEMOTRON\Epistemotron\Science\Universe.cpp(157,9): warning C4244:  'initializing': conversion from 'double' to 'int', possible loss of data
-  ViewTree.cpp
-C:\Programmation\EPISTEMOTRON\Epistemotron\Science\Universe.cpp(158,9): warning C4244:  'initializing': conversion from 'double' to 'int', possible loss of data
+﻿  Universe.cpp
+C:\Programmation\EPISTEMOTRON\Epistemotron\Science\Universe.cpp(24,57): warning C4244:  'argument': conversion from 'INT_PTR' to 'int', possible loss of data
+C:\Programmation\EPISTEMOTRON\Epistemotron\Science\Universe.cpp(106,9): warning C4244:  'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Programmation\EPISTEMOTRON\Epistemotron\Science\Universe.cpp(107,9): warning C4244:  'initializing': conversion from 'double' to 'int', possible loss of data
   Generating code
-  Previous IPDB not found, fall back to full compilation.
-  All 682 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  1 of 684 functions ( 0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    2 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   Epistemotron.vcxproj -> C:\Programmation\EPISTEMOTRON\x64\Release\Epistemotron.exe

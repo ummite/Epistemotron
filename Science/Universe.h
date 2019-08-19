@@ -14,7 +14,7 @@ public:
 	void Universe::Randomize();
 	Universe* GenerateSimulationStep(int p_iStepSize);
 	Mass& GetAt(int p_iPos)										{ return m_arrMasses.GetAt(p_iPos); }
-	void ExportPPM(int p_iWidth = 512, int p_iHeight = 512);
+	void ExportPPM(int p_iWidth = 800, int p_iHeight = 600);
 
 	void SimulateFrom(const Universe& p_roUniverse, int p_iStepSize);
 

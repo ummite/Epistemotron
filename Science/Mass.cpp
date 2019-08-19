@@ -23,10 +23,16 @@ Mass::~Mass(void)
 
 void Mass::Randomize(void)
 {
-	m_X = (rand() - rand()) * (rand() - rand()) / 100.0 ;
-	m_Y = (rand() - rand()) * (rand() - rand()) / 100.0 ;
-	m_Z = (rand() - rand()) * (rand() - rand()) / 100.0 ;
-	m_MasseKG = 1000 + (20000 * rand());
+	m_X = -146000000;	// 146 million km
+	
+	m_VitesseX = (rand() - 0.5) * -29720;	// m/s
+	m_VitesseY = (rand() - 0.5) * -29720;	// m/s
+	m_VitesseZ = (rand() - 0.5) * -29720;	// m/s
+
+	m_X = (rand() - 0.5) * 146000000;
+	m_Y = (rand() - 0.5) * 146000000;
+	m_Z = (rand() - 0.5) * 146000000;
+	m_MasseKG = 5.98e24;
 }
 
 // Nouvelle Position en KM = (Vitesse en M/S * in_NombreSeconde) / 1000
