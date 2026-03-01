@@ -1,0 +1,39 @@
+# Visual Studio generated files
+.vs/
+*.aps
+*.user
+*.suo
+*.ipch
+*.vcxproj.filters
+
+# Build artifacts
+x64/
+x86/
+Debug/
+Release/
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.log
+*.tlb
+*.iobj
+*.irmap
+*.ncb
+*.sdf
+*.exe.manifest
+*.dll.manifest
+
+# MFC resource compiler output
+*.res
+*.resr
+
+# Precompiled headers
+*.pch
+*.pcheaders
+
+# CppBuildData
+**/_VisualStudio_MacroDatabase/
+
+# Solution/user data
+*.sln.docstates
