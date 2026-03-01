@@ -1,2 +1,1 @@
-﻿  Simulator.cpp
-  Epistemotron.vcxproj -> C:\Programmation\EPISTEMOTRON\x64\Debug\Epistemotron.exe
+﻿C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(479,5): error MSB8041: MFC libraries are required for this project. Install them from the Visual Studio installer (Individual Components tab) for any toolsets and architectures being used.
