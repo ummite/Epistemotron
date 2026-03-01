@@ -17,6 +17,8 @@ Epistemotron is a C++ desktop application built with Microsoft Foundation Classe
 
 **Platform:** Windows desktop application (SubSystem: Windows)
 
+**Recommended IDE:** GitHub Desktop for version control, Visual Studio for development
+
 ## Code Architecture
 
 ### Main Application Structure
@@ -69,6 +71,8 @@ The application uses Modern UI chrome with `CMFC` classes:
 - `CMFCStatusBar` for status display
 - `CMFCDockingPane` for dockable control bars
 - High-contrast theme support via `_hc` resource variants
+
+**Note:** The UI has a dockable pane layout similar to Visual Studio, with File View, Class View, Output Window, and Properties Window.
 
 Resource files in `res/` directory contain:
 - Application icons (`.ico`)

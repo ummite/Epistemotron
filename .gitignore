@@ -5,6 +5,8 @@
 *.suo
 *.ipch
 *.vcxproj.filters
+*.vspscc
+*.vssscc
 
 # Build artifacts
 x64/
@@ -23,6 +25,7 @@ Release/
 *.sdf
 *.exe.manifest
 *.dll.manifest
+*.exp
 
 # MFC resource compiler output
 *.res
@@ -37,3 +40,7 @@ Release/
 
 # Solution/user data
 *.sln.docstates
+
+# Temporary files
+*.tmp
+*.bak
