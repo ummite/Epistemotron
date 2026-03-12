@@ -1,6 +1,5 @@
 
 #include "pch.h"
-#include "framework.h"
 
 #include "OutputWnd.h"
 #include "Resource.h"
@@ -149,7 +148,6 @@ BEGIN_MESSAGE_MAP(COutputList, CListBox)
 	ON_COMMAND(ID_EDIT_COPY, OnEditCopy)
 	ON_COMMAND(ID_EDIT_CLEAR, OnEditClear)
 	ON_COMMAND(ID_VIEW_OUTPUTWND, OnViewOutput)
-	ON_WM_WINDOWPOSCHANGING()
 END_MESSAGE_MAP()
 /////////////////////////////////////////////////////////////////////////////
 // COutputList message handlers
@@ -157,16 +155,21 @@ END_MESSAGE_MAP()
 void COutputList::OnContextMenu(CWnd* /*pWnd*/, CPoint point)
 {
 	CMenu menu;
-	menu.LoadMenu(IDR_OUTPUT_POPUP);
+	if (!menu.LoadMenu(IDR_OUTPUT_POPUP))
+		return;
 
 	CMenu* pSumMenu = menu.GetSubMenu(0);
+	if (!pSumMenu)
+		return;
 
 	if (AfxGetMainWnd()->IsKindOf(RUNTIME_CLASS(CMDIFrameWndEx)))
 	{
 		CMFCPopupMenu* pPopupMenu = new CMFCPopupMenu;
-
 		if (!pPopupMenu->Create(this, point.x, point.y, (HMENU)pSumMenu->m_hMenu, FALSE, TRUE))
+		{
+			delete pPopupMenu;  // Prevent memory leak
 			return;
+		}
 
 		((CMDIFrameWndEx*)AfxGetMainWnd())->OnShowPopupMenu(pPopupMenu);
 		UpdateDialogControls(this, FALSE);
@@ -177,12 +180,51 @@ void COutputList::OnContextMenu(CWnd* /*pWnd*/, CPoint point)
 
 void COutputList::OnEditCopy()
 {
-	MessageBox(_T("Copy output"));
+	// Copy selected text to clipboard
+	int nSelStart = GetSelStart();
+	int nSelEnd = GetSelEnd();
+
+	if (nSelStart == WB_ERR || nSelEnd == WB_ERR)
+		return;
+
+	CString strText;
+	GetText(nSelStart, nSelEnd, strText);
+
+	if (!strText.IsEmpty())
+	{
+		OPENFILENAME ofn = { sizeof(ofn) };
+		HGLOBAL hMem = GlobalAlloc(GMEM_DDESHARE, (strText.GetLength() + 1) * sizeof(TCHAR));
+		if (hMem)
+		{
+			TCHAR* pch = (TCHAR*)GlobalLock(hMem);
+			if (pch)
+			{
+				lstrcpy(pch, strText);
+				GlobalUnlock(hMem);
+
+				if (OpenClipboard())
+				{
+					EmptyClipboard();
+					SetClipboardData(CF_TEXT, hMem);
+					CloseClipboard();
+				}
+				else
+				{
+					GlobalFree(hMem);
+				}
+			}
+			else
+			{
+				GlobalFree(hMem);
+			}
+		}
+	}
 }
 
 void COutputList::OnEditClear()
 {
-	MessageBox(_T("Clear output"));
+	// Clear all items from the list box
+	ResetContent();
 }
 
 void COutputList::OnViewOutput()

@@ -13,14 +13,15 @@
 
 #define K_NombreEtoile			15
 
-//#define K_PasDeSimulationEnSeconde  1 // 1 seconde simulé = 1 pas.
+//#define K_PasDeSimulationEnSeconde  1 // 1 seconde simulï¿½ = 1 pas.
 
-#define	DIST_MIN				1
+#define	DIST_MIN				1000		// km - minimum distance to skip interaction (avoid self-interaction)
+#define SOFTENING_PARAM			1000000.0 // m^2 - Plummer softening parameter to prevent numerical instability
 //#define VITESSE_DEPART			1
 
-// Échelle de vitesse est en mètre par seconde
+// ï¿½chelle de vitesse est en mï¿½tre par seconde
 
-// Échelle de masse en KG
+// ï¿½chelle de masse en KG
 
 
 

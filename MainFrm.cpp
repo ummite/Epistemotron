@@ -3,7 +3,6 @@
 //
 
 #include "pch.h"
-#include "framework.h"
 #include "Epistemotron.h"
 
 #include "MainFrm.h"

@@ -1,6 +1,5 @@
 
 #include "pch.h"
-#include "framework.h"
 #include "mainfrm.h"
 #include "FileView.h"
 #include "Resource.h"

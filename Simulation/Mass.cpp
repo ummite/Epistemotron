@@ -50,61 +50,35 @@ void Mass::EffectuerPasChangementVitesse(const Universe& p_roUniverse, int p_iSt
     double dblImpactSpeedY = 0.0;
     double dblImpactSpeedZ = 0.0;
 
-    // Calculate gravitational acceleration from each mass
     for (size_t i = 0; i < p_roUniverse.m_masses.size(); i++)
     {
         const Mass& roMass = p_roUniverse.m_masses[i];
-
-        const double dblDistance = Distance(roMass);
-        if (dblDistance < DIST_MIN)  // Skip if too close to avoid division by zero
-        {
-            continue;
-        }
-
-        // F = G * m1 * m2 / d^2 (mass in kg, distance in meters)
-        // Since we store distance in km, multiply distance by 1000^2 = 1000000
-        // F = MA, so A = F / M (acceleration = force / our mass)
-        // A * T = velocity change
-
-        const double dblForce = (G * roMass.m_MasseKG * m_MasseKG) / (dblDistance * dblDistance * 1000000.0);
-        const double dblAcceleration = dblForce / m_MasseKG;
 
         const double deltaX = roMass.m_X - m_X;
         const double deltaY = roMass.m_Y - m_Y;
         const double deltaZ = roMass.m_Z - m_Z;
 
-        // Component of acceleration along each axis * time step = velocity change
-        const double variationVitesseX = (deltaX * deltaX / (dblDistance * dblDistance)) * dblAcceleration * p_iStepSize;
-        const double variationVitesseY = (deltaY * deltaY / (dblDistance * dblDistance)) * dblAcceleration * p_iStepSize;
-        const double variationVitesseZ = (deltaZ * deltaZ / (dblDistance * dblDistance)) * dblAcceleration * p_iStepSize;
+        const double dblDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
 
-        // Accelerate towards the other mass
-        if (deltaX > 0)
+        if (dblDistance < DIST_MIN)
         {
-            dblImpactSpeedX += variationVitesseX;
-        }
-        else
-        {
-            dblImpactSpeedX -= variationVitesseX;
+            continue;  // Skip if too close to avoid division by zero
         }
 
-        if (deltaY > 0)
-        {
-            dblImpactSpeedY += variationVitesseY;
-        }
-        else
-        {
-            dblImpactSpeedY -= variationVitesseY;
-        }
+        // F = G * m1 * m2 / d^2 (distance in meters, so multiply km by 1000)
+        // a = F / m = G * m_other / d^2
+        const double dblDistanceMeters = dblDistance * 1000.0;
+        const double dblAcceleration = G * roMass.m_MasseKG / (dblDistanceMeters * dblDistanceMeters);
 
-        if (deltaZ > 0)
-        {
-            dblImpactSpeedZ += variationVitesseZ;
-        }
-        else
-        {
-            dblImpactSpeedZ -= variationVitesseZ;
-        }
+        // Direction cosines (normalized vector toward other mass)
+        const double dirX = deltaX / dblDistance;
+        const double dirY = deltaY / dblDistance;
+        const double dirZ = deltaZ / dblDistance;
+
+        // Velocity change = acceleration * direction * time step
+        dblImpactSpeedX += dirX * dblAcceleration * p_iStepSize;
+        dblImpactSpeedY += dirY * dblAcceleration * p_iStepSize;
+        dblImpactSpeedZ += dirZ * dblAcceleration * p_iStepSize;
     }
 
     m_VitesseX += dblImpactSpeedX;

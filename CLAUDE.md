@@ -8,16 +8,49 @@ Epistemotron is a C++ desktop application built with Microsoft Foundation Classe
 
 ## Build & Run
 
-**Building the project:**
-- Open `Epistemotron.sln` in Visual Studio 2017 or later
-- Select configuration (Debug/Release) and platform (Win32/x64)
-- Build via Build > Build Solution or press Ctrl+Shift+B
+### MFC Application (Visual Studio)
 
-**No command-line build is configured** - the project is designed for Visual Studio IDE only.
+**Building the GUI application:**
+- Open `Epistemotron.sln` in Visual Studio 2019 or later
+- Select configuration (Debug/Release) and platform (x64)
+- Build via Build > Build Solution or press Ctrl+Shift+B
 
 **Platform:** Windows desktop application (SubSystem: Windows)
 
-**Recommended IDE:** GitHub Desktop for version control, Visual Studio for development
+**Toolset Notes:**
+- Debug configuration uses v143 (Visual Studio 2022)
+- Release configuration uses v142 (Visual Studio 2019)
+- MFC usage: Dynamic linking (`UseOfMfc>Dynamic`)
+
+### Simulation Library (CMake)
+
+The `Science/` module can be built independently as a cross-platform C++17 library:
+
+```bash
+mkdir build && cd build
+cmake ..
+cmake --build .
+```
+
+**Build options:**
+- `BUILD_TESTS=ON` (default) - Builds `test_simulation` executable
+- `BUILD_EXAMPLES=ON` - Builds example programs
+
+**Running tests:**
+```bash
+ctest --output-on-failure
+```
+
+**Recommended IDE:** GitHub Desktop for version control, Visual Studio for MFC development
+
+## Important Path Notes
+
+The project maintains two versions of the simulation code:
+
+- **`Science/`** - MFC-specific version using `CString` and MFC conventions, linked into the GUI application
+- **`Simulation/`** - Cross-platform C++17 version using `std::string` and modern C++, built via CMake
+
+These are **separate implementations** of the same physics simulation, not symbolic links or aliases.
 
 ## Code Architecture
 
@@ -87,17 +120,27 @@ Resource files in `res/` directory contain:
 
 3. **Precompiled Headers**: `pch.h` must be included first in all source files (enforced by project settings)
 
-4. **No Unit Tests**: The project has no test infrastructure - development is GUI-driven with manual testing
+4. **Dual C++ Standards**:
+   - MFC application uses C++20 (`stdcpp20`)
+   - CMake simulation library uses C++17 (`cxx_std_17`)
 
-5. **Resource-Heavy UI**: Application relies on embedded bitmap resources for toolbar icons and UI chrome
+5. **No Unit Tests for MFC**: The GUI application has no test infrastructure - development is GUI-driven with manual testing. The CMake build includes `tests/main.cpp` for the simulation library.
+
+6. **Resource-Heavy UI**: Application relies on embedded bitmap resources for toolbar icons and UI chrome. High-contrast variants use `_hc` suffix (e.g., `Toolbar.bmp` and `menuimages_hc.bmp`).
+
+7. **Physics Units**:
+   - Position: kilometers (X, Y, Z)
+   - Velocity: meters per second
+   - Mass: kilograms
+   - Time step: seconds
 
 ## File Locations Summary
 
 | Component | Files |
 |-----------|-------|
 | Application Core | `Epistemotron.{cpp,h}`, `framework.h`, `pch.{cpp,h}` |
-| Document/View | `EpistemotronDoc.{cpp,h}`, `EpistemotronView.{cpp,h}` |
+| Document/View | `EpistemotronDoc.{cpp,h}`, `EpistemotronView.{cpp,h}`, `Picture.{cpp,h}` |
 | Main Frame | `MainFrm.{cpp,h}`, `ChildFrm.{cpp,h}` |
 | Dockable Panes | `FileView.{cpp,h}`, `ClassView.{cpp,h}`, `OutputWnd.{cpp,h}`, `PropertiesWnd.{cpp,h}`, `ViewTree.{cpp,h}` |
 | Simulation | `Science/Mass.{cpp,h}`, `Science/Universe.{cpp,h}`, `Science/Simulator.{cpp,h}`, `Science/Environment.{cpp,h}` |
-| Resources | `res/*`, `Epistemotron.rc`, `Resource.rc`, `Resource.h` |
+| Resources | `res/*`, `Epistemotron.rc`, `Resource.rc`, `Resource.h`, `resource1.h` |

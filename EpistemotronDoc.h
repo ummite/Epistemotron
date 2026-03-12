@@ -2,18 +2,19 @@
 // EpistemotronDoc.h : interface of the CEpistemotronDoc class
 //
 
-
 #pragma once
 
+class Universe;  // Forward declaration
 
 class CEpistemotronDoc : public CDocument
 {
-protected: // create from serialization only
+protected:
 	CEpistemotronDoc() noexcept;
 	DECLARE_DYNCREATE(CEpistemotronDoc)
 
 // Attributes
 public:
+	Universe* m_pCurrentUniverse;  // Current simulation state
 
 // Operations
 public:
@@ -42,7 +43,6 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 #ifdef SHARED_HANDLERS
-	// Helper function that sets search content for a Search Handler
 	void SetSearchContent(const CString& value);
 #endif // SHARED_HANDLERS
 };

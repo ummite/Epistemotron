@@ -23,15 +23,17 @@ Mass::~Mass(void)
 
 void Mass::Randomize(void)
 {
-	m_X = -146000000;	// 146 million km
-	
-	m_VitesseX = (rand() - 0.5) * -29720;	// m/s
-	m_VitesseY = (rand() - 0.5) * -29720;	// m/s
-	m_VitesseZ = (rand() - 0.5) * -29720;	// m/s
+	// Random position within +/- 146 million km
+	m_X = (rand() / static_cast<double>(RAND_MAX) - 0.5) * 146000000.0;
+	m_Y = (rand() / static_cast<double>(RAND_MAX) - 0.5) * 146000000.0;
+	m_Z = (rand() / static_cast<double>(RAND_MAX) - 0.5) * 146000000.0;
 
-	m_X = (rand() - 0.5) * 146000000;
-	m_Y = (rand() - 0.5) * 146000000;
-	m_Z = (rand() - 0.5) * 146000000;
+	// Random velocity between -29720 and +29720 m/s
+	m_VitesseX = (rand() / static_cast<double>(RAND_MAX) - 0.5) * 29720.0;
+	m_VitesseY = (rand() / static_cast<double>(RAND_MAX) - 0.5) * 29720.0;
+	m_VitesseZ = (rand() / static_cast<double>(RAND_MAX) - 0.5) * 29720.0;
+
+	// Earth mass as default
 	m_MasseKG = 5.98e24;
 }
 
@@ -44,69 +46,45 @@ void Mass::EffectuerPasChangementPosition(int p_iStepSize)
 	m_Z += (m_VitesseZ * p_iStepSize) / 1000.0;
 }
 
-//
-void Mass::EffectuerPasChangementVitesse(const Universe& p_roUniverse, int p_iStepSize)	// StepSize in seconds.
+// Update velocity based on gravitational interactions with all other masses
+void Mass::EffectuerPasChangementVitesse(const Universe& p_roUniverse, int p_iStepSize)
 {
 	double dblImpactSpeedX = 0.0;
 	double dblImpactSpeedY = 0.0;
 	double dblImpactSpeedZ = 0.0;
 
-	// We should change speed before position, so that way we will know we are not the same mass by position.
 	for (int i = 0; i < p_roUniverse.m_arrMasses.GetSize(); i++)
 	{
 		const Mass& roMass = p_roUniverse.m_arrMasses.GetAt(i);
-
-		const double dblDistance = Distance(roMass);
-		if(dblDistance < DIST_MIN)	// fix the issue of same position ourself.
-		{
-			continue;
-		}
-
-		// F = Gm1m2/d2 (mass in kg and distance in meter, since we store in km, we must multiply by 1000 each distance)
-		// F = MA
-		// F/M = A
-		// A x T = speed change.
-		// Force divisé par notre masse pour simplifier le calcul plus bas en accélération
-
-		const double dblForce = (G * roMass.m_MasseKG * m_MasseKG) / (dblDistance * dblDistance * 1000000);
-		const double dblAcceleration = dblForce / m_MasseKG;
 
 		const double deltaX = roMass.m_X - m_X;
 		const double deltaY = roMass.m_Y - m_Y;
 		const double deltaZ = roMass.m_Z - m_Z;
 
-		// La proportion de l'accélération en X * nombre de seconde = variation de vitesse à appliquer à cette masse.
-		const double variationVitesseX = (deltaX*deltaX/(dblDistance * dblDistance)) * dblAcceleration * p_iStepSize;
-		const double variationVitesseY = (deltaY*deltaY/(dblDistance * dblDistance)) * dblAcceleration * p_iStepSize;
-		const double variationVitesseZ = (deltaZ*deltaZ/(dblDistance * dblDistance)) * dblAcceleration * p_iStepSize;
+		const double dblDistance = sqrt(deltaX*deltaX + deltaY*deltaY + deltaZ*deltaZ);
 
-		// The other mass is "higher" in value than us, so we want to go in its direction, we accelerate through this axis.
-		if (deltaX > 0)
+		if (dblDistance < DIST_MIN)
 		{
-			dblImpactSpeedX += variationVitesseX;
-		}
-		else
-		{
-			dblImpactSpeedX -= variationVitesseX;
+			continue;	// Skip if too close (e.g., same mass)
 		}
 
-		if (deltaY > 0)
-		{
-			dblImpactSpeedY += variationVitesseY;
-		}
-		else
-		{
-			dblImpactSpeedY -= variationVitesseY;
-		}
+		// F = G*m1*m2/d^2 (distance in meters, so multiply km by 1000)
+		// a = F/m = G*m_other/d^2
+		// Using Plummer softening: replace d^2 with (d^2 + epsilon^2) to prevent
+		// numerical instability when bodies get very close
+		const double dblDistanceMeters = dblDistance * 1000.0;
+		const double dblDistanceSquared = dblDistanceMeters * dblDistanceMeters + SOFTENING_PARAM;
+		const double dblAcceleration = G * roMass.m_MasseKG / dblDistanceSquared;
 
-		if (deltaZ > 0)
-		{
-			dblImpactSpeedZ += variationVitesseZ;
-		}
-		else
-		{
-			dblImpactSpeedZ -= variationVitesseZ;
-		}
+		// Direction cosines (normalized vector toward other mass)
+		const double dirX = deltaX / dblDistance;
+		const double dirY = deltaY / dblDistance;
+		const double dirZ = deltaZ / dblDistance;
+
+		// Velocity change = acceleration * direction * time step
+		dblImpactSpeedX += dirX * dblAcceleration * p_iStepSize;
+		dblImpactSpeedY += dirY * dblAcceleration * p_iStepSize;
+		dblImpactSpeedZ += dirZ * dblAcceleration * p_iStepSize;
 	}
 
 	m_VitesseX += dblImpactSpeedX;

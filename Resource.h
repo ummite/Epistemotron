@@ -85,6 +85,21 @@
 #define IDS_EXPLORER                    305
 #define IDS_EDIT_MENU                   306
 
+// Simulation control commands
+#define ID_SIMULATION_START             32771
+#define ID_SIMULATION_PAUSE             32772
+#define ID_SIMULATION_RESUME            32773
+#define ID_SIMULATION_STOP              32774
+#define ID_SIMULATION_RESET             32775
+#define ID_SIMULATION_SPEED_UP          32776
+#define ID_SIMULATION_SLOW_DOWN         32777
+#define ID_SIMULATION_STEP              32778
+
+// Strings for simulation
+#define IDS_SIMULATION_RUNNING          310
+#define IDS_SIMULATION_PAUSED           311
+#define IDS_SIMULATION_STOPPED          312
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED

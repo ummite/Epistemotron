@@ -1,6 +1,5 @@
 
 #include "pch.h"
-#include "framework.h"
 
 #include "PropertiesWnd.h"
 #include "Resource.h"
@@ -23,6 +22,7 @@ CPropertiesWnd::CPropertiesWnd() noexcept
 
 CPropertiesWnd::~CPropertiesWnd()
 {
+	m_fntPropList.Destroy();  // Free GDI resource
 }
 
 BEGIN_MESSAGE_MAP(CPropertiesWnd, CDockablePane)

@@ -1,6 +1,5 @@
 
 #include "pch.h"
-#include "framework.h"
 #include "ViewTree.h"
 
 #ifdef _DEBUG

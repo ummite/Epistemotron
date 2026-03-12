@@ -3,14 +3,12 @@
 //
 
 #include "pch.h"
-#include "framework.h"
-// SHARED_HANDLERS can be defined in an ATL project implementing preview, thumbnail
-// and search filter handlers and allows sharing of document code with that project.
 #ifndef SHARED_HANDLERS
 #include "Epistemotron.h"
 #endif
 
 #include "EpistemotronDoc.h"
+#include "Science/Universe.h"
 
 #include <propkey.h>
 
@@ -29,11 +27,17 @@ END_MESSAGE_MAP()
 // CEpistemotronDoc construction/destruction
 
 CEpistemotronDoc::CEpistemotronDoc() noexcept
+	: m_pCurrentUniverse(nullptr)
 {
 }
 
 CEpistemotronDoc::~CEpistemotronDoc()
 {
+	if (m_pCurrentUniverse)
+	{
+		delete m_pCurrentUniverse;
+		m_pCurrentUniverse = nullptr;
+	}
 }
 
 BOOL CEpistemotronDoc::OnNewDocument()

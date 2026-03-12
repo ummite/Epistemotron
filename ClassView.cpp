@@ -1,6 +1,5 @@
 
 #include "pch.h"
-#include "framework.h"
 #include "MainFrm.h"
 #include "ClassView.h"
 #include "Resource.h"
@@ -187,16 +186,21 @@ void CClassView::OnContextMenu(CWnd* pWnd, CPoint point)
 
 	pWndTree->SetFocus();
 	CMenu menu;
-	menu.LoadMenu(IDR_POPUP_SORT);
+	if (!menu.LoadMenu(IDR_POPUP_SORT))
+		return;
 
 	CMenu* pSumMenu = menu.GetSubMenu(0);
+	if (!pSumMenu)
+		return;
 
 	if (AfxGetMainWnd()->IsKindOf(RUNTIME_CLASS(CMDIFrameWndEx)))
 	{
 		CMFCPopupMenu* pPopupMenu = new CMFCPopupMenu;
-
 		if (!pPopupMenu->Create(this, point.x, point.y, (HMENU)pSumMenu->m_hMenu, FALSE, TRUE))
+		{
+			delete pPopupMenu;  // Prevent memory leak
 			return;
+		}
 
 		((CMDIFrameWndEx*)AfxGetMainWnd())->OnShowPopupMenu(pPopupMenu);
 		UpdateDialogControls(this, FALSE);
