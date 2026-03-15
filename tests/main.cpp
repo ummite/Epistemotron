@@ -96,7 +96,8 @@ void TestSolarSystem()
     const int stepSize = 60 * 60 * 24;  // One day in seconds
     const int numSteps = 5;
 
-    Universe* current = &universe;
+    // Use heap allocation to avoid deleting stack variable
+    Universe* current = new Universe(universe);  // Copy constructor
     for (int step = 0; step < numSteps; ++step)
     {
         Universe* next = current->GenerateSimulationStep(stepSize);

@@ -14,6 +14,7 @@ class Universe
 public:
     Universe();
     Universe(int p_iMasses);
+    Universe(const Universe& src);  // Copy constructor
     virtual ~Universe();
 
     // Collection of masses in this universe

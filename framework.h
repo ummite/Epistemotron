@@ -1,41 +1,39 @@
 #pragma once
 
-#ifndef VC_EXTRALEAN
-#define VC_EXTRALEAN            // Exclude rarely-used stuff from Windows headers
-#endif
+// Framework header for Epistemotron MFC application
+// Defines Windows and MFC includes used throughout the project
 
+// Include targetver.h first to set the minimum Windows platform version
 #include "targetver.h"
 
-#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // some CString constructors will be explicit
+#ifndef VC_EXTRALEAN
+#define VC_EXTRALEAN            // Exclude rarely-used Windows API elements
+#endif
 
-// turns off MFC's hiding of some common and often safely ignored warning messages
-#define _AFX_ALL_WARNINGS
+// ATL/MFC settings
+#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS  // Require explicit CString constructors
+#define _AFX_ALL_WARNINGS                   // Disable MFC warning suppression
 
+// Core Windows and MFC headers
+#include <windows.h>        // Windows API
 #include <afxwin.h>         // MFC core and standard components
 #include <afxext.h>         // MFC extensions
 
+// MFC Automation (required for OLE/COM support)
+#include <afxdisp.h>
 
-#include <afxdisp.h>        // MFC Automation classes
-
-
-
+// Common Controls support
 #ifndef _AFX_NO_OLE_SUPPORT
-#include <afxdtctl.h>           // MFC support for Internet Explorer 4 Common Controls
+#include <afxdtctl.h>       // Internet Explorer 4 Common Controls
 #endif
 #ifndef _AFX_NO_AFXCMN_SUPPORT
-#include <afxcmn.h>             // MFC support for Windows Common Controls
-#endif // _AFX_NO_AFXCMN_SUPPORT
+#include <afxcmn.h>         // Windows Common Controls (toolbar, status bar, etc.)
+#endif
 
-#include <afxcontrolbars.h>     // MFC support for ribbons and control bars
+// Modern UI components (ribbons, docking, etc.)
+#include <afxcontrolbars.h>
 
-
-
-
-
-
-
-
-
+// Visual Styles manifest for Common Controls v6
 #ifdef _UNICODE
 #if defined _M_IX86
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -45,5 +43,3 @@
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #endif
 #endif
-
-

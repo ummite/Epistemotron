@@ -97,15 +97,31 @@ int CClassView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	CMenu menuSort;
 	menuSort.LoadMenu(IDR_POPUP_SORT);
 
-	m_wndToolBar.ReplaceButton(ID_SORT_MENU, CClassViewMenuButton(menuSort.GetSubMenu(0)->GetSafeHmenu()));
+	CMenu* pSubMenu = menuSort.GetSubMenu(0);
+	if (pSubMenu == nullptr)
+	{
+		TRACE(_T("Failed to load sort menu\n"));
+		return -1;
+	}
 
-	CClassViewMenuButton* pButton =  DYNAMIC_DOWNCAST(CClassViewMenuButton, m_wndToolBar.GetButton(0));
+	// Detach the menu handle so CMenu destructor won't destroy it when it goes out of scope
+	HMENU hMenu = pSubMenu->Detach();
+	m_wndToolBar.ReplaceButton(ID_SORT_MENU, CClassViewMenuButton(hMenu));
+
+	CClassViewMenuButton* pButton = DYNAMIC_DOWNCAST(CClassViewMenuButton, m_wndToolBar.GetButton(0));
 
 	if (pButton != nullptr)
 	{
 		pButton->m_bText = FALSE;
 		pButton->m_bImage = TRUE;
-		pButton->SetImage(GetCmdMgr()->GetCmdImage(m_nCurrSort));
+
+		// GetCmdMgr can return nullptr, check before dereferencing
+		CCmdTarget* pCmdMgr = GetCmdMgr();
+		if (pCmdMgr != nullptr)
+		{
+			pButton->SetImage(pCmdMgr->GetCmdImage(m_nCurrSort));
+		}
+
 		pButton->SetMessageWnd(this);
 	}
 
@@ -123,40 +139,66 @@ void CClassView::OnSize(UINT nType, int cx, int cy)
 
 void CClassView::FillClassView()
 {
-	HTREEITEM hRoot = m_wndClassView.InsertItem(_T("FakeApp classes"), 0, 0);
+	HTREEITEM hRoot = m_wndClassView.InsertItem(_T("Epistemotron classes"), 0, 0);
 	m_wndClassView.SetItemState(hRoot, TVIS_BOLD, TVIS_BOLD);
 
-	HTREEITEM hClass = m_wndClassView.InsertItem(_T("CFakeAboutDlg"), 1, 1, hRoot);
-	m_wndClassView.InsertItem(_T("CFakeAboutDlg()"), 3, 3, hClass);
-
-	m_wndClassView.Expand(hRoot, TVE_EXPAND);
-
-	hClass = m_wndClassView.InsertItem(_T("CFakeApp"), 1, 1, hRoot);
-	m_wndClassView.InsertItem(_T("CFakeApp()"), 3, 3, hClass);
+	// Application class
+	HTREEITEM hClass = m_wndClassView.InsertItem(_T("CEpistemotronApp"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("CEpistemotronApp()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("InitInstance()"), 3, 3, hClass);
-	m_wndClassView.InsertItem(_T("OnAppAbout()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("ExitInstance()"), 3, 3, hClass);
 
-	hClass = m_wndClassView.InsertItem(_T("CFakeAppDoc"), 1, 1, hRoot);
-	m_wndClassView.InsertItem(_T("CFakeAppDoc()"), 4, 4, hClass);
-	m_wndClassView.InsertItem(_T("~CFakeAppDoc()"), 3, 3, hClass);
+	// Document class
+	hClass = m_wndClassView.InsertItem(_T("CEpistemotronDoc"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("CEpistemotronDoc()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("~CEpistemotronDoc()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("OnNewDocument()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("Serialize()"), 3, 3, hClass);
 
-	hClass = m_wndClassView.InsertItem(_T("CFakeAppView"), 1, 1, hRoot);
-	m_wndClassView.InsertItem(_T("CFakeAppView()"), 4, 4, hClass);
-	m_wndClassView.InsertItem(_T("~CFakeAppView()"), 3, 3, hClass);
-	m_wndClassView.InsertItem(_T("GetDocument()"), 3, 3, hClass);
-	m_wndClassView.Expand(hClass, TVE_EXPAND);
+	// View class
+	hClass = m_wndClassView.InsertItem(_T("CEpistemotronView"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("CEpistemotronView()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("~CEpistemotronView()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnDraw()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("StartSimulation()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("StopSimulation()"), 3, 3, hClass);
 
-	hClass = m_wndClassView.InsertItem(_T("CFakeAppFrame"), 1, 1, hRoot);
-	m_wndClassView.InsertItem(_T("CFakeAppFrame()"), 3, 3, hClass);
-	m_wndClassView.InsertItem(_T("~CFakeAppFrame()"), 3, 3, hClass);
+	// Frame classes
+	hClass = m_wndClassView.InsertItem(_T("CMainFrame"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("CMainFrame()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("~CMainFrame()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("m_wndMenuBar"), 6, 6, hClass);
 	m_wndClassView.InsertItem(_T("m_wndToolBar"), 6, 6, hClass);
 	m_wndClassView.InsertItem(_T("m_wndStatusBar"), 6, 6, hClass);
 
+	hClass = m_wndClassView.InsertItem(_T("CChildFrame"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("CChildFrame()"), 3, 3, hClass);
+
+	// Science module classes
+	hClass = m_wndClassView.InsertItem(_T("Mass"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("Mass()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("Randomize()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("Distance()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("EffectuerPasChangementPosition()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("EffectuerPasChangementVitesse()"), 3, 3, hClass);
+
+	hClass = m_wndClassView.InsertItem(_T("Universe"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("Universe()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("Randomize()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GenerateSimulationStep()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("SimulateFrom()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("ExportPPM()"), 3, 3, hClass);
+
+	hClass = m_wndClassView.InsertItem(_T("Simulator"), 1, 1, hRoot);
+	m_wndClassView.InsertItem(_T("Simulator()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("Test()"), 3, 3, hClass);
+
+	// Globals
 	hClass = m_wndClassView.InsertItem(_T("Globals"), 2, 2, hRoot);
-	m_wndClassView.InsertItem(_T("theFakeApp"), 5, 5, hClass);
+	m_wndClassView.InsertItem(_T("theApp"), 5, 5, hClass);
 	m_wndClassView.Expand(hClass, TVE_EXPAND);
+
+	m_wndClassView.Expand(hRoot, TVE_EXPAND);
 }
 
 void CClassView::OnContextMenu(CWnd* pWnd, CPoint point)
@@ -187,23 +229,29 @@ void CClassView::OnContextMenu(CWnd* pWnd, CPoint point)
 	pWndTree->SetFocus();
 	CMenu menu;
 	if (!menu.LoadMenu(IDR_POPUP_SORT))
+	{
 		return;
+	}
 
 	CMenu* pSumMenu = menu.GetSubMenu(0);
-	if (!pSumMenu)
+	if (pSumMenu == nullptr)
+	{
 		return;
+	}
 
-	if (AfxGetMainWnd()->IsKindOf(RUNTIME_CLASS(CMDIFrameWndEx)))
+	CWnd* pMainWnd = AfxGetMainWnd();
+	if (pMainWnd != nullptr && pMainWnd->IsKindOf(RUNTIME_CLASS(CMDIFrameWndEx)))
 	{
 		CMFCPopupMenu* pPopupMenu = new CMFCPopupMenu;
 		if (!pPopupMenu->Create(this, point.x, point.y, (HMENU)pSumMenu->m_hMenu, FALSE, TRUE))
 		{
-			delete pPopupMenu;  // Prevent memory leak
+			delete pPopupMenu;  // Prevent memory leak on failed creation
 			return;
 		}
 
-		((CMDIFrameWndEx*)AfxGetMainWnd())->OnShowPopupMenu(pPopupMenu);
+		((CMDIFrameWndEx*)pMainWnd)->OnShowPopupMenu(pPopupMenu);
 		UpdateDialogControls(this, FALSE);
+		// Note: OnShowPopupMenu takes ownership of pPopupMenu and will delete it when done
 	}
 }
 
@@ -237,11 +285,17 @@ void CClassView::OnSort(UINT id)
 
 	m_nCurrSort = id;
 
-	CClassViewMenuButton* pButton =  DYNAMIC_DOWNCAST(CClassViewMenuButton, m_wndToolBar.GetButton(0));
+	CClassViewMenuButton* pButton = DYNAMIC_DOWNCAST(CClassViewMenuButton, m_wndToolBar.GetButton(0));
 
 	if (pButton != nullptr)
 	{
-		pButton->SetImage(GetCmdMgr()->GetCmdImage(id));
+		// GetCmdMgr can return nullptr, check before dereferencing
+		CCmdTarget* pCmdMgr = GetCmdMgr();
+		if (pCmdMgr != nullptr)
+		{
+			pButton->SetImage(pCmdMgr->GetCmdImage(id));
+		}
+
 		m_wndToolBar.Invalidate();
 		m_wndToolBar.UpdateWindow();
 	}
@@ -259,17 +313,17 @@ void CClassView::OnClassAddMemberFunction()
 
 void CClassView::OnClassAddMemberVariable()
 {
-	// TODO: Add your command handler code here
+	AfxMessageBox(_T("Add member variable..."));
 }
 
 void CClassView::OnClassDefinition()
 {
-	// TODO: Add your command handler code here
+	AfxMessageBox(_T("Go to class definition..."));
 }
 
 void CClassView::OnClassProperties()
 {
-	// TODO: Add your command handler code here
+	AfxMessageBox(_T("Class properties..."));
 }
 
 void CClassView::OnNewFolder()
@@ -289,10 +343,8 @@ void CClassView::OnPaint()
 	dc.Draw3dRect(rectTree, ::GetSysColor(COLOR_3DSHADOW), ::GetSysColor(COLOR_3DSHADOW));
 }
 
-void CClassView::OnSetFocus(CWnd* pOldWnd)
+void CClassView::OnSetFocus(CWnd* /*pOldWnd*/)
 {
-	CDockablePane::OnSetFocus(pOldWnd);
-
 	m_wndClassView.SetFocus();
 }
 

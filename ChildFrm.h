@@ -10,11 +10,6 @@ class CChildFrame : public CMDIChildWndEx
 public:
 	CChildFrame() noexcept;
 
-// Attributes
-protected:
-	CSplitterWndEx m_wndSplitter;
-public:
-
 // Operations
 public:
 

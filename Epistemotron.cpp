@@ -16,8 +16,6 @@
 #define new DEBUG_NEW
 #endif
 
-#include "Science/Simulator.h"
-
 
 // CEpistemotronApp
 
@@ -37,7 +35,7 @@ CEpistemotronApp::CEpistemotronApp() noexcept
 {
 	m_bHiColorIcons = TRUE;
 
-	// support Restart Manager
+	// Support Restart Manager for Windows update resilience
 	m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_ALL_ASPECTS;
 #ifdef _MANAGED
 	// If the application is built using Common Language Runtime support (/clr):
@@ -46,12 +44,11 @@ CEpistemotronApp::CEpistemotronApp() noexcept
 	System::Windows::Forms::Application::SetUnhandledExceptionMode(System::Windows::Forms::UnhandledExceptionMode::ThrowException);
 #endif
 
-	// TODO: replace application ID string below with unique ID string; recommended
-	// format for string is CompanyName.ProductName.SubProduct.VersionInformation
-	SetAppID(_T("Epistemotron.AppID.NoVersion"));
+	// Application ID for Windows 10+ taskbar grouping and settings isolation
+	SetAppID(_T("Epistemotron.GravitationalSimulator.NBody.1.0"));
 
-	// TODO: add construction code here,
-	// Place all significant initialization in InitInstance
+	// NOTE: All significant initialization is deferred to InitInstance()
+	// to ensure proper error handling and resource cleanup.
 }
 
 // The one and only CEpistemotronApp object
@@ -87,7 +84,10 @@ BOOL CEpistemotronApp::InitInstance()
 
 	EnableTaskbarInteraction();
 
-	// AfxInitRichEdit2() is required to use RichEdit control
+	// AfxInitRichEdit2() is required to use RichEdit control.
+	// This application does not currently use RichEdit controls, so this
+	// initialization is omitted to reduce startup time and memory usage.
+	// If RichEdit support is needed in the future, uncomment the line below:
 	// AfxInitRichEdit2();
 
 	// Standard initialization
@@ -95,10 +95,13 @@ BOOL CEpistemotronApp::InitInstance()
 	// of your final executable, you should remove from the following
 	// the specific initialization routines you do not need
 	// Change the registry key under which our settings are stored
-	// TODO: You should modify this string to be something appropriate
-	// such as the name of your company or organization
-	SetRegistryKey(_T("Local AppWizard-Generated Applications"));
-	LoadStdProfileSettings(4);  // Load standard INI file options (including MRU)
+	// Registry key for application settings storage
+	SetRegistryKey(_T("Epistemotron\\GravitationalSimulator\\1.0"));
+
+	// Load standard INI file options, including Most Recently Used (MRU) file list
+	// MRU list size constant defined here for maintainability
+	constexpr int MAX_MRU_FILES = 4;
+	LoadStdProfileSettings(MAX_MRU_FILES);
 
 
 	InitContextMenuManager();
@@ -119,14 +122,25 @@ BOOL CEpistemotronApp::InitInstance()
 		RUNTIME_CLASS(CChildFrame), // custom MDI child frame
 		RUNTIME_CLASS(CEpistemotronView));
 	if (!pDocTemplate)
+	{
+		AfxMessageBox(IDS_APP_RUNNING_LOW_ON_RESOURCES);
+		AfxOleTerm(FALSE);
 		return FALSE;
+	}
 	AddDocTemplate(pDocTemplate);
 
 	// create main MDI Frame window
 	CMainFrame* pMainFrame = new CMainFrame;
-	if (!pMainFrame || !pMainFrame->LoadFrame(IDR_MAINFRAME))
+	if (!pMainFrame)
+	{
+		AfxMessageBox(IDS_APP_RUNNING_LOW_ON_RESOURCES);
+		AfxOleTerm(FALSE);
+		return FALSE;  // Memory allocation failed
+	}
+	if (!pMainFrame->LoadFrame(IDR_MAINFRAME))
 	{
 		delete pMainFrame;
+		AfxOleTerm(FALSE);
 		return FALSE;
 	}
 	m_pMainWnd = pMainFrame;
@@ -139,7 +153,10 @@ BOOL CEpistemotronApp::InitInstance()
 	// Dispatch commands specified on the command line.  Will return FALSE if
 	// app was launched with /RegServer, /Register, /Unregserver or /Unregister.
 	if (!ProcessShellCommand(cmdInfo))
+	{
+		AfxOleTerm(FALSE);
 		return FALSE;
+	}
 	// The main window has been initialized, so show and update it
 	pMainFrame->ShowWindow(m_nCmdShow);
 	pMainFrame->UpdateWindow();
@@ -149,8 +166,11 @@ BOOL CEpistemotronApp::InitInstance()
 
 int CEpistemotronApp::ExitInstance()
 {
-	//TODO: handle additional resources you may have added
+	// Clean up OLE resources (required if AfxOleInit was called)
 	AfxOleTerm(FALSE);
+
+	// NOTE: Document templates are automatically cleaned up by CWinAppEx::ExitInstance()
+	// No additional resource cleanup needed for this application.
 
 	return CWinAppEx::ExitInstance();
 }

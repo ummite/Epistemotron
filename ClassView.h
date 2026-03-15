@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include "ViewTree.h"
-
 class CClassToolBar : public CMFCToolBar
 {
 	virtual void OnUpdateCmdUI(CFrameWnd* /*pTarget*/, BOOL bDisableIfNoHndler)
@@ -24,7 +22,7 @@ public:
 
 protected:
 	CClassToolBar m_wndToolBar;
-	CViewTree m_wndClassView;
+	CTreeCtrl m_wndClassView;
 	CImageList m_ClassViewImages;
 	UINT m_nCurrSort;
 

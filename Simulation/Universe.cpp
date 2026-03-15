@@ -12,6 +12,11 @@ Universe::Universe(int p_iMasses)
     m_masses.resize(static_cast<size_t>(p_iMasses));
 }
 
+Universe::Universe(const Universe& src)
+    : m_iIteration(src.m_iIteration), m_masses(src.m_masses)
+{
+}
+
 Universe::~Universe()
 {
 }

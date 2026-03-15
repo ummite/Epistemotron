@@ -12,8 +12,19 @@ protected:
 	CEpistemotronDoc() noexcept;
 	DECLARE_DYNCREATE(CEpistemotronDoc)
 
+// Copy semantics (Rule of Five)
+public:
+	CEpistemotronDoc(const CEpistemotronDoc& src);
+	CEpistemotronDoc& operator=(const CEpistemotronDoc& src);
+	CEpistemotronDoc(CEpistemotronDoc&& src) noexcept;
+	CEpistemotronDoc& operator=(CEpistemotronDoc&& src) noexcept;
+
 // Attributes
 public:
+	Universe* GetUniverse() const { return m_pCurrentUniverse; }
+	void SetUniverse(Universe* pUniverse) { m_pCurrentUniverse = pUniverse; }
+
+protected:
 	Universe* m_pCurrentUniverse;  // Current simulation state
 
 // Operations

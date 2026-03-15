@@ -9,6 +9,7 @@
 
 #include "EpistemotronDoc.h"
 #include "Science/Universe.h"
+#include "Science/Environment.h"  // For K_NombreEtoile
 
 #include <propkey.h>
 
@@ -40,13 +41,109 @@ CEpistemotronDoc::~CEpistemotronDoc()
 	}
 }
 
+// Copy constructor - deep copy of universe
+CEpistemotronDoc::CEpistemotronDoc(const CEpistemotronDoc& src)
+	: CDocument(), m_pCurrentUniverse(nullptr)
+{
+	// Deep copy the universe if source has one
+	if (src.m_pCurrentUniverse != nullptr)
+	{
+		int nMassCount = src.m_pCurrentUniverse->GetMassCount();
+		m_pCurrentUniverse = new Universe(nMassCount);
+		m_pCurrentUniverse->m_iIteration = src.m_pCurrentUniverse->m_iIteration;
+
+		// Copy each mass properties
+		for (int i = 0; i < nMassCount; i++)
+		{
+			const Mass& srcMass = src.m_pCurrentUniverse->GetAt(i);
+			Mass& dstMass = m_pCurrentUniverse->GetAt(i);
+
+			dstMass.m_X = srcMass.m_X;
+			dstMass.m_Y = srcMass.m_Y;
+			dstMass.m_Z = srcMass.m_Z;
+			dstMass.m_VitesseX = srcMass.m_VitesseX;
+			dstMass.m_VitesseY = srcMass.m_VitesseY;
+			dstMass.m_VitesseZ = srcMass.m_VitesseZ;
+			dstMass.m_MasseKG = srcMass.m_MasseKG;
+		}
+	}
+}
+
+// Copy assignment operator - deep copy with self-assignment check, exception-safe
+CEpistemotronDoc& CEpistemotronDoc::operator=(const CEpistemotronDoc& src)
+{
+	if (this != &src)  // Self-assignment check
+	{
+		// Create new universe first (exception-safe: old data preserved if allocation fails)
+		Universe* pNewUniverse = nullptr;
+
+		if (src.m_pCurrentUniverse != nullptr)
+		{
+			int nMassCount = src.m_pCurrentUniverse->GetMassCount();
+			pNewUniverse = new Universe(nMassCount);
+			pNewUniverse->m_iIteration = src.m_pCurrentUniverse->m_iIteration;
+
+			// Copy each mass properties
+			for (int i = 0; i < nMassCount; i++)
+			{
+				const Mass& srcMass = src.m_pCurrentUniverse->GetAt(i);
+				Mass& dstMass = pNewUniverse->GetAt(i);
+
+				dstMass.m_X = srcMass.m_X;
+				dstMass.m_Y = srcMass.m_Y;
+				dstMass.m_Z = srcMass.m_Z;
+				dstMass.m_VitesseX = srcMass.m_VitesseX;
+				dstMass.m_VitesseY = srcMass.m_VitesseY;
+				dstMass.m_VitesseZ = srcMass.m_VitesseZ;
+				dstMass.m_MasseKG = srcMass.m_MasseKG;
+			}
+		}
+
+		// Now delete old universe and replace with new (strong exception guarantee)
+		delete m_pCurrentUniverse;
+		m_pCurrentUniverse = pNewUniverse;
+	}
+	return *this;
+}
+
+// Move constructor - transfer ownership
+CEpistemotronDoc::CEpistemotronDoc(CEpistemotronDoc&& src) noexcept
+	: CDocument(), m_pCurrentUniverse(nullptr)
+{
+	m_pCurrentUniverse = src.m_pCurrentUniverse;
+	src.m_pCurrentUniverse = nullptr;
+}
+
+// Move assignment operator - transfer ownership with self-assignment check
+CEpistemotronDoc& CEpistemotronDoc::operator=(CEpistemotronDoc&& src) noexcept
+{
+	if (this != &src)  // Self-assignment check
+	{
+		delete m_pCurrentUniverse;
+		m_pCurrentUniverse = src.m_pCurrentUniverse;
+		src.m_pCurrentUniverse = nullptr;
+	}
+	return *this;
+}
+
 BOOL CEpistemotronDoc::OnNewDocument()
 {
 	if (!CDocument::OnNewDocument())
 		return FALSE;
 
-	// TODO: add reinitialization code here
-	// (SDI documents will reuse this document)
+	// Clear old universe to prevent memory leak in SDI mode
+	if (m_pCurrentUniverse != nullptr)
+	{
+		delete m_pCurrentUniverse;
+		m_pCurrentUniverse = nullptr;
+	}
+
+	// Create fresh universe and load the default Solar System scenario
+	m_pCurrentUniverse = new Universe(1);  // Temporary, will be resized by LoadScenario
+	m_pCurrentUniverse->LoadScenario(ScenarioType::SolarSystem);
+
+	// Notify views of new document state
+	UpdateAllViews(nullptr);
 
 	return TRUE;
 }
@@ -60,11 +157,75 @@ void CEpistemotronDoc::Serialize(CArchive& ar)
 {
 	if (ar.IsStoring())
 	{
-		// TODO: add storing code here
+		// Save universe state
+		if (m_pCurrentUniverse != nullptr)
+		{
+			// Save iteration count
+			ar << m_pCurrentUniverse->m_iIteration;
+
+			// Save mass count
+			int nMassCount = m_pCurrentUniverse->GetMassCount();
+			ar << nMassCount;
+
+			// Save each mass properties
+			for (int i = 0; i < nMassCount; i++)
+			{
+				const Mass& mass = m_pCurrentUniverse->GetAt(i);
+				ar << mass.m_X << mass.m_Y << mass.m_Z;      // Position (km)
+				ar << mass.m_VitesseX << mass.m_VitesseY << mass.m_VitesseZ;  // Velocity (m/s)
+				ar << mass.m_MasseKG;  // Mass (kg)
+			}
+		}
+		else
+		{
+			// No universe - save empty state
+			int nEmpty = -1;
+			ar << nEmpty;
+		}
 	}
 	else
 	{
-		// TODO: add loading code here
+		// Load universe state
+		int nIteration;
+		ar >> nIteration;
+
+		// Check for empty state marker
+		if (nIteration == -1)
+		{
+			return;  // Empty document
+		}
+
+		// Delete old universe if exists
+		if (m_pCurrentUniverse != nullptr)
+		{
+			delete m_pCurrentUniverse;
+			m_pCurrentUniverse = nullptr;
+		}
+
+		// Read mass count
+		int nMassCount;
+		ar >> nMassCount;
+
+		if (nMassCount <= 0)
+		{
+			return;  // Invalid or empty
+		}
+
+		// Create new universe with specified mass count
+		m_pCurrentUniverse = new Universe(nMassCount);
+		m_pCurrentUniverse->m_iIteration = nIteration;
+
+		// Load each mass properties
+		for (int i = 0; i < nMassCount; i++)
+		{
+			Mass& mass = m_pCurrentUniverse->GetAt(i);
+			ar >> mass.m_X >> mass.m_Y >> mass.m_Z;      // Position (km)
+			ar >> mass.m_VitesseX >> mass.m_VitesseY >> mass.m_VitesseZ;  // Velocity (m/s)
+			ar >> mass.m_MasseKG;  // Mass (kg)
+		}
+
+		// Notify views of data change
+		UpdateAllViews(nullptr);
 	}
 }
 
@@ -89,6 +250,7 @@ void CEpistemotronDoc::OnDrawThumbnail(CDC& dc, LPRECT lprcBounds)
 	CFont* pOldFont = dc.SelectObject(&fontDraw);
 	dc.DrawText(strText, lprcBounds, DT_CENTER | DT_WORDBREAK);
 	dc.SelectObject(pOldFont);
+	fontDraw.DeleteObject();  // Properly cleanup GDI resource
 }
 
 // Support for Search Handlers

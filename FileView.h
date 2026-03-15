@@ -1,13 +1,11 @@
 
 #pragma once
 
-#include "ViewTree.h"
-
 class CFileViewToolBar : public CMFCToolBar
 {
-	virtual void OnUpdateCmdUI(CFrameWnd* /*pTarget*/, BOOL bDisableIfNoHndler)
+	virtual void OnUpdateCmdUI(CFrameWnd* pTarget, BOOL bDisableIfNoHndler) override
 	{
-		CMFCToolBar::OnUpdateCmdUI((CFrameWnd*) GetOwner(), bDisableIfNoHndler);
+		CMFCToolBar::OnUpdateCmdUI(static_cast<CFrameWnd*>(GetOwner()), bDisableIfNoHndler);
 	}
 
 	virtual BOOL AllowShowOnList() const { return FALSE; }
@@ -22,10 +20,17 @@ public:
 	void AdjustLayout();
 	void OnChangeVisualStyle();
 
+// Layout constants
+protected:
+	static constexpr int c_nToolBarHeight = 16;           // Image list icon size (pixels)
+	static constexpr int c_nTreeMargin = 1;                // Tree view margin from toolbar (pixels)
+	static constexpr int c_nControlId = 4;                 // Tree view control ID
+	static constexpr COLORREF c_magentaMask = RGB(255, 0, 255);  // Magenta mask color for bitmaps
+
 // Attributes
 protected:
 
-	CViewTree m_wndFileView;
+	CTreeCtrl m_wndFileView;
 	CImageList m_FileViewImages;
 	CFileViewToolBar m_wndToolBar;
 

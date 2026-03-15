@@ -89,14 +89,21 @@ void COutputWnd::AdjustHorzScroll(CListBox& wndListBox)
 {
 	CClientDC dc(this);
 	CFont* pOldFont = dc.SelectObject(&afxGlobalData.fontRegular);
+	if (pOldFont == nullptr)
+	{
+		return;
+	}
 
 	int cxExtentMax = 0;
+	int nCount = wndListBox.GetCount();
 
-	for (int i = 0; i < wndListBox.GetCount(); i ++)
+	// Cache text in a single CString to avoid repeated allocations
+	CString strItem;
+	strItem.Empty();
+
+	for (int i = 0; i < nCount; i ++)
 	{
-		CString strItem;
 		wndListBox.GetText(i, strItem);
-
 		cxExtentMax = max(cxExtentMax, (int)dc.GetTextExtent(strItem).cx);
 	}
 
@@ -127,9 +134,17 @@ void COutputWnd::FillFindWindow()
 
 void COutputWnd::UpdateFonts()
 {
+	// Save old fonts to ensure proper cleanup
+	CFont* pOldFontBuild = m_wndOutputBuild.GetFont();
+	CFont* pOldFontDebug = m_wndOutputDebug.GetFont();
+	CFont* pOldFontFind = m_wndOutputFind.GetFont();
+
 	m_wndOutputBuild.SetFont(&afxGlobalData.fontRegular);
 	m_wndOutputDebug.SetFont(&afxGlobalData.fontRegular);
 	m_wndOutputFind.SetFont(&afxGlobalData.fontRegular);
+
+	// Note: afxGlobalData.fontRegular is a shared system font,
+	// so we don't delete pOldFont* - the list boxes manage their own font resources
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -159,10 +174,15 @@ void COutputList::OnContextMenu(CWnd* /*pWnd*/, CPoint point)
 		return;
 
 	CMenu* pSumMenu = menu.GetSubMenu(0);
-	if (!pSumMenu)
+	if (pSumMenu == nullptr)
 		return;
 
-	if (AfxGetMainWnd()->IsKindOf(RUNTIME_CLASS(CMDIFrameWndEx)))
+	// Check for null main window to prevent crash
+	CWnd* pMainWnd = AfxGetMainWnd();
+	if (pMainWnd == nullptr)
+		return;
+
+	if (pMainWnd->IsKindOf(RUNTIME_CLASS(CMDIFrameWndEx)))
 	{
 		CMFCPopupMenu* pPopupMenu = new CMFCPopupMenu;
 		if (!pPopupMenu->Create(this, point.x, point.y, (HMENU)pSumMenu->m_hMenu, FALSE, TRUE))
@@ -171,7 +191,8 @@ void COutputList::OnContextMenu(CWnd* /*pWnd*/, CPoint point)
 			return;
 		}
 
-		((CMDIFrameWndEx*)AfxGetMainWnd())->OnShowPopupMenu(pPopupMenu);
+		// OnShowPopupMenu takes ownership of pPopupMenu
+		((CMDIFrameWndEx*)pMainWnd)->OnShowPopupMenu(pPopupMenu);
 		UpdateDialogControls(this, FALSE);
 	}
 
@@ -185,40 +206,72 @@ void COutputList::OnEditCopy()
 	int nSelEnd = GetSelEnd();
 
 	if (nSelStart == WB_ERR || nSelEnd == WB_ERR)
+	{
+		TRACE0("COutputList::OnEditCopy: No text selected or invalid selection\n");
 		return;
+	}
 
 	CString strText;
 	GetText(nSelStart, nSelEnd, strText);
 
-	if (!strText.IsEmpty())
+	if (strText.IsEmpty())
 	{
-		OPENFILENAME ofn = { sizeof(ofn) };
-		HGLOBAL hMem = GlobalAlloc(GMEM_DDESHARE, (strText.GetLength() + 1) * sizeof(TCHAR));
-		if (hMem)
-		{
-			TCHAR* pch = (TCHAR*)GlobalLock(hMem);
-			if (pch)
-			{
-				lstrcpy(pch, strText);
-				GlobalUnlock(hMem);
-
-				if (OpenClipboard())
-				{
-					EmptyClipboard();
-					SetClipboardData(CF_TEXT, hMem);
-					CloseClipboard();
-				}
-				else
-				{
-					GlobalFree(hMem);
-				}
-			}
-			else
-			{
-				GlobalFree(hMem);
-			}
-		}
+		return;
 	}
+
+	// CF_UNICODETEXT always requires wide character (UTF-16) format
+	// Allocate (string length + 1) * 2 bytes for null-terminated wide string
+	size_t allocSize = (strText.GetLength() + 1) * sizeof(WCHAR);
+	HGLOBAL hMem = GlobalAlloc(GMEM_DDESHARE, allocSize);
+	if (hMem == nullptr)
+	{
+		TRACE0("COutputList::OnEditCopy: Failed to allocate memory for clipboard data\n");
+		return;
+	}
+
+	WCHAR* pch = (WCHAR*)GlobalLock(hMem);
+	if (pch == nullptr)
+	{
+		TRACE0("COutputList::OnEditCopy: Failed to lock memory for clipboard data\n");
+		GlobalFree(hMem);
+		return;
+	}
+
+	// Convert CString to wide string with bounds checking
+	size_t strLen = strText.GetLength();
+	// wcsncpy is safe here because we allocated (strLen + 1) * sizeof(WCHAR)
+	// and we're copying strLen characters, leaving room for null terminator
+	wcsncpy(pch, strText, strLen);
+	pch[strLen] = L'\0';  // Ensure null termination
+	GlobalUnlock(hMem);
+
+	if (!OpenClipboard())
+	{
+		DWORD errorCode = GetLastError();
+		TRACE1("COutputList::OnEditCopy: Failed to open clipboard. Error: %lu\n", errorCode);
+		GlobalFree(hMem);
+		return;
+	}
+
+	if (!EmptyClipboard())
+	{
+		DWORD errorCode = GetLastError();
+		TRACE1("COutputList::OnEditCopy: Failed to empty clipboard. Error: %lu\n", errorCode);
+		CloseClipboard();
+		GlobalFree(hMem);
+		return;
+	}
+
+	if (!SetClipboardData(CF_UNICODETEXT, hMem))
+	{
+		DWORD errorCode = GetLastError();
+		TRACE1("COutputList::OnEditCopy: Failed to set clipboard data. Error: %lu\n", errorCode);
+		CloseClipboard();
+		GlobalFree(hMem);
+		return;
+	}
+
+	CloseClipboard();
 }
 
 void COutputList::OnEditClear()

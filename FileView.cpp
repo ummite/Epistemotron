@@ -51,14 +51,14 @@ int CFileView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// Create view:
 	const DWORD dwViewStyle = WS_CHILD | WS_VISIBLE | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS;
 
-	if (!m_wndFileView.Create(dwViewStyle, rectDummy, this, 4))
+	if (!m_wndFileView.Create(dwViewStyle, rectDummy, this, c_nControlId))
 	{
 		TRACE0("Failed to create file view\n");
 		return -1;      // fail to create
 	}
 
 	// Load view images:
-	m_FileViewImages.Create(IDB_FILE_VIEW, 16, 0, RGB(255, 0, 255));
+	m_FileViewImages.Create(IDB_FILE_VIEW, c_nToolBarHeight, 0, c_magentaMask);
 	m_wndFileView.SetImageList(&m_FileViewImages, TVSIL_NORMAL);
 
 	m_wndToolBar.Create(this, AFX_DEFAULT_TOOLBAR_STYLE, IDR_EXPLORER);
@@ -82,16 +82,17 @@ int CFileView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-void CFileView::OnSize(UINT nType, int cx, int cy)
+void CFileView::OnSize(UINT /*nType*/, int /*cx*/, int /*cy*/)
 {
-	CDockablePane::OnSize(nType, cx, cy);
+	// Base class handles resizing; we just adjust our internal layout
+	CDockablePane::OnSize(0, 0, 0);
 	AdjustLayout();
 }
 
 void CFileView::FillFileView()
 {
 	HTREEITEM hRoot = m_wndFileView.InsertItem(_T("FakeApp files"), 0, 0);
-	m_wndFileView.SetItemState(hRoot, TVIS_BOLD, TVIS_BOLD);
+	m_wndFileView.SetItemState(hRoot, TVIS_BOLD, TVIS_STATEIMAGEMASK);
 
 	HTREEITEM hSrc = m_wndFileView.InsertItem(_T("FakeApp Source Files"), 0, 0, hRoot);
 
@@ -125,7 +126,7 @@ void CFileView::FillFileView()
 
 void CFileView::OnContextMenu(CWnd* pWnd, CPoint point)
 {
-	CTreeCtrl* pWndTree = (CTreeCtrl*) &m_wndFileView;
+	CTreeCtrl* pWndTree = static_cast<CTreeCtrl*>(&m_wndFileView);
 	ASSERT_VALID(pWndTree);
 
 	if (pWnd != pWndTree)
@@ -134,7 +135,8 @@ void CFileView::OnContextMenu(CWnd* pWnd, CPoint point)
 		return;
 	}
 
-	if (point != CPoint(-1, -1))
+	constexpr CPoint c_invalidPoint(-1, -1);
+	if (point != c_invalidPoint)
 	{
 		// Select clicked item:
 		CPoint ptTree = point;
@@ -165,43 +167,53 @@ void CFileView::AdjustLayout()
 	int cyTlb = m_wndToolBar.CalcFixedLayout(FALSE, TRUE).cy;
 
 	m_wndToolBar.SetWindowPos(nullptr, rectClient.left, rectClient.top, rectClient.Width(), cyTlb, SWP_NOACTIVATE | SWP_NOZORDER);
-	m_wndFileView.SetWindowPos(nullptr, rectClient.left + 1, rectClient.top + cyTlb + 1, rectClient.Width() - 2, rectClient.Height() - cyTlb - 2, SWP_NOACTIVATE | SWP_NOZORDER);
+	m_wndFileView.SetWindowPos(nullptr,
+		rectClient.left + c_nTreeMargin,
+		rectClient.top + cyTlb + c_nTreeMargin,
+		rectClient.Width() - 2 * c_nTreeMargin,
+		rectClient.Height() - cyTlb - 2 * c_nTreeMargin,
+		SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
 void CFileView::OnProperties()
 {
-	AfxMessageBox(_T("Properties...."));
-
+	AfxMessageBox(_T("Properties"));
 }
 
 void CFileView::OnFileOpen()
 {
-	// TODO: Add your command handler code here
+	// Placeholder: Open the selected file in the editor
+	// TODO: Implement file opening logic
 }
 
 void CFileView::OnFileOpenWith()
 {
-	// TODO: Add your command handler code here
+	// Placeholder: Open the selected file with external application
+	// TODO: Implement "Open With" dialog and file handling
 }
 
 void CFileView::OnDummyCompile()
 {
-	// TODO: Add your command handler code here
+	// Placeholder: Trigger compilation of selected file(s)
+	// TODO: Implement compilation trigger
 }
 
 void CFileView::OnEditCut()
 {
-	// TODO: Add your command handler code here
+	// Placeholder: Cut selected file(s) to clipboard
+	// TODO: Implement cut operation for file tree items
 }
 
 void CFileView::OnEditCopy()
 {
-	// TODO: Add your command handler code here
+	// Placeholder: Copy selected file(s) to clipboard
+	// TODO: Implement copy operation for file tree items
 }
 
 void CFileView::OnEditClear()
 {
-	// TODO: Add your command handler code here
+	// Placeholder: Delete selected file(s)
+	// TODO: Implement delete/clear operation for file tree items
 }
 
 void CFileView::OnPaint()
@@ -212,14 +224,14 @@ void CFileView::OnPaint()
 	m_wndFileView.GetWindowRect(rectTree);
 	ScreenToClient(rectTree);
 
-	rectTree.InflateRect(1, 1);
-	dc.Draw3dRect(rectTree, ::GetSysColor(COLOR_3DSHADOW), ::GetSysColor(COLOR_3DSHADOW));
+	rectTree.InflateRect(c_nTreeMargin, c_nTreeMargin);
+	dc.Draw3dRect(rectTree, GetSysColor(COLOR_3DSHADOW), GetSysColor(COLOR_3DSHADOW));
 }
 
-void CFileView::OnSetFocus(CWnd* pOldWnd)
+void CFileView::OnSetFocus(CWnd* /*pOldWnd*/)
 {
-	CDockablePane::OnSetFocus(pOldWnd);
-
+	// Focus goes to the tree control, not this pane
+	CDockablePane::OnSetFocus(nullptr);
 	m_wndFileView.SetFocus();
 }
 
@@ -228,6 +240,8 @@ void CFileView::OnChangeVisualStyle()
 	m_wndToolBar.CleanUpLockedImages();
 	m_wndToolBar.LoadBitmap(theApp.m_bHiColorIcons ? IDB_EXPLORER_24 : IDR_EXPLORER, 0, 0, TRUE /* Locked */);
 
+	// Clear the old image list from the tree view before deleting
+	m_wndFileView.SetImageList(nullptr, TVSIL_NORMAL);
 	m_FileViewImages.DeleteImageList();
 
 	UINT uiBmpId = theApp.m_bHiColorIcons ? IDB_FILE_VIEW_24 : IDB_FILE_VIEW;
@@ -237,6 +251,7 @@ void CFileView::OnChangeVisualStyle()
 	{
 		TRACE(_T("Can't load bitmap: %x\n"), uiBmpId);
 		ASSERT(FALSE);
+		// Don't return early - leave image list as nullptr to prevent dangling pointer
 		return;
 	}
 
@@ -247,8 +262,13 @@ void CFileView::OnChangeVisualStyle()
 
 	nFlags |= (theApp.m_bHiColorIcons) ? ILC_COLOR24 : ILC_COLOR4;
 
-	m_FileViewImages.Create(16, bmpObj.bmHeight, nFlags, 0, 0);
-	m_FileViewImages.Add(&bmp, RGB(255, 0, 255));
+	if (!m_FileViewImages.Create(c_nToolBarHeight, bmpObj.bmHeight, nFlags, 0, 0))
+	{
+		TRACE(_T("Failed to create image list\n"));
+		return;
+	}
+
+	m_FileViewImages.Add(&bmp, c_magentaMask);
 
 	m_wndFileView.SetImageList(&m_FileViewImages, TVSIL_NORMAL);
 }

@@ -57,7 +57,14 @@ void CPropertiesWnd::AdjustLayout()
 
 	m_wndObjectCombo.SetWindowPos(nullptr, rectClient.left, rectClient.top, rectClient.Width(), m_nComboHeight, SWP_NOACTIVATE | SWP_NOZORDER);
 	m_wndToolBar.SetWindowPos(nullptr, rectClient.left, rectClient.top + m_nComboHeight, rectClient.Width(), cyTlb, SWP_NOACTIVATE | SWP_NOZORDER);
-	m_wndPropList.SetWindowPos(nullptr, rectClient.left, rectClient.top + m_nComboHeight + cyTlb, rectClient.Width(), rectClient.Height() -(m_nComboHeight+cyTlb), SWP_NOACTIVATE | SWP_NOZORDER);
+
+	// Calculate property list height with bounds checking to prevent negative values
+	int propListHeight = rectClient.Height() - (m_nComboHeight + cyTlb);
+	if (propListHeight < 0)
+	{
+		propListHeight = 0;  // Prevent negative height which could cause crashes
+	}
+	m_wndPropList.SetWindowPos(nullptr, rectClient.left, rectClient.top + m_nComboHeight + cyTlb, rectClient.Width(), propListHeight, SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
 int CPropertiesWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
@@ -157,6 +164,9 @@ void CPropertiesWnd::OnUpdateProperties2(CCmdUI* /*pCmdUI*/)
 
 void CPropertiesWnd::InitPropList()
 {
+	// Clear any existing properties to prevent memory leaks on re-initialization
+	m_wndPropList.RemoveAll();
+
 	SetPropListFont();
 
 	m_wndPropList.EnableHeaderCtrl(FALSE);
@@ -252,7 +262,8 @@ void CPropertiesWnd::OnSettingChange(UINT uFlags, LPCTSTR lpszSection)
 
 void CPropertiesWnd::SetPropListFont()
 {
-	::DeleteObject(m_fntPropList.Detach());
+	// Use Destroy() for proper MFC-safe cleanup
+	m_fntPropList.Destroy();
 
 	LOGFONT lf;
 	afxGlobalData.fontRegular.GetLogFont(&lf);
