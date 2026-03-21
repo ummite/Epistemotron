@@ -1,5 +1,4 @@
 // Resource.rc : resource script
-#include "pch.h"
 #include "targetver.h"
 #include "Resource.h"
 

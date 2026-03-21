@@ -33,6 +33,16 @@
 // Modern UI components (ribbons, docking, etc.)
 #include <afxcontrolbars.h>
 
+// C++ Standard Library
+#include <algorithm>        // For std::sort, std::find, etc.
+#include <vector>           // For std::vector
+#include <cmath>            // For trigonometric functions
+
+// Simulation enums (placed here in framework.h to ensure visibility in PCH)
+enum class SimulationState { Stopped, Running, Paused };
+enum class ScenarioType { SolarSystem, BinaryStar, ThreeBody, Galaxy };
+enum class IntegratorType { SymplecticEuler, VelocityVerlet };
+
 // Visual Styles manifest for Common Controls v6
 #ifdef _UNICODE
 #if defined _M_IX86

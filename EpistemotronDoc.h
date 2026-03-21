@@ -23,9 +23,7 @@ public:
 public:
 	Universe* GetUniverse() const { return m_pCurrentUniverse; }
 	void SetUniverse(Universe* pUniverse) { m_pCurrentUniverse = pUniverse; }
-
-protected:
-	Universe* m_pCurrentUniverse;  // Current simulation state
+	Universe* m_pCurrentUniverse;  // Current simulation state - public for direct access
 
 // Operations
 public:

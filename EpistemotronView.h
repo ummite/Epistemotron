@@ -6,9 +6,8 @@
 
 class CEpistemotronDoc;
 
-// Simulation states
-enum class SimulationState { Stopped, Running, Paused };
-
+// Simulation states enum is now defined in framework.h (via pch.h)
+// Also remove ScenarioType and IntegratorType from here as they're in framework.h
 class CEpistemotronView : public CView
 {
 protected:
@@ -69,10 +68,7 @@ protected:
 	UINT m_timerId;
 	int m_stepsPerFrame;
 	int m_stepSizeSec;  // Time step in seconds
-
-	// Integrator selection
-	enum class IntegratorType { SymplecticEuler, VelocityVerlet };
-	IntegratorType m_integratorType;
+	IntegratorType m_integratorType;  // Integrator selection (now defined in pch.h via framework.h)
 
 	// Current scenario type
 	ScenarioType m_currentScenario;
@@ -101,10 +97,11 @@ protected:
 	BOOL m_bShowTrails;  // Toggle for showing/hiding orbit trails
 
 	// Timer handler
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnSimulationTimer();
 
 	// Camera control handlers
-	afx_msg void OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 	afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 
 	// Mouse handlers for panning
@@ -129,6 +126,10 @@ protected:
 	void RenderTrailForMasses(CDC* pDC, const Universe& universe,
 		int centerX, int centerY, double cameraDistance, double fov,
 		double panX, double panY);
+
+	// 3D rendering methods
+	void RenderUniverse3D(CDC* pDC, const Universe& universe, const CRect& rcClient);
+	void DrawUIOverlay(CDC* pDC, const CRect& rcClient);
 
 // Generated message map functions
 protected:

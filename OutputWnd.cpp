@@ -201,18 +201,20 @@ void COutputList::OnContextMenu(CWnd* /*pWnd*/, CPoint point)
 
 void COutputList::OnEditCopy()
 {
-	// Copy selected text to clipboard
-	int nSelStart = GetSelStart();
-	int nSelEnd = GetSelEnd();
-
-	if (nSelStart == WB_ERR || nSelEnd == WB_ERR)
+	// Copy selected items text to clipboard
+	int nSelCount = GetSelCount();
+	if (nSelCount <= 0)
 	{
-		TRACE0("COutputList::OnEditCopy: No text selected or invalid selection\n");
+		TRACE0("COutputList::OnEditCopy: No text selected\n");
 		return;
 	}
 
 	CString strText;
-	GetText(nSelStart, nSelEnd, strText);
+	int nIndex = GetCurSel();
+	if (nIndex != LB_ERR)
+	{
+		GetText(nIndex, strText);
+	}
 
 	if (strText.IsEmpty())
 	{
@@ -239,9 +241,8 @@ void COutputList::OnEditCopy()
 
 	// Convert CString to wide string with bounds checking
 	size_t strLen = strText.GetLength();
-	// wcsncpy is safe here because we allocated (strLen + 1) * sizeof(WCHAR)
-	// and we're copying strLen characters, leaving room for null terminator
-	wcsncpy(pch, strText, strLen);
+	// wcsncpy_s is safe when we allocated (strLen + 1) * sizeof(WCHAR)
+	wcsncpy_s(pch, allocSize / sizeof(WCHAR), strText, strLen);
 	pch[strLen] = L'\0';  // Ensure null termination
 	GlobalUnlock(hMem);
 

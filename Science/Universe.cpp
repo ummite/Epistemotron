@@ -75,7 +75,7 @@ namespace GalaxyConstants
 namespace PPMExportConstants
 {
 	constexpr int MassStep = 16;
-	constexpr double ZoomFactor = std::sqrt(2.0);  // sqrt(2) for aspect ratio
+	constexpr double ZoomFactor = 1.41421356237;  // sqrt(2) for aspect ratio (pre-calculated)
 	constexpr int PixelThreshold = 15;
 	constexpr const wchar_t* DefaultOutputPath = L"c:\\temp\\t.bmp";
 }
@@ -293,6 +293,13 @@ void Universe::LoadGalaxy()
 		InitializeMass(m_arrMasses[i + 1], starMass, x, y, z, vx, vy, vz);
 	}
 }
+
+// Forward declaration of static helper function
+static void ComputeAccelerations(
+	int nMassCount,
+	const CArray<double>& posX, const CArray<double>& posY, const CArray<double>& posZ,
+	const CArray<double>& mass,
+	CArray<double>& accX, CArray<double>& accY, CArray<double>& accZ);
 
 Universe* Universe::GenerateSimulationStep(int p_iStepSize)
 {

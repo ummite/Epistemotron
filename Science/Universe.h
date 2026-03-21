@@ -2,14 +2,8 @@
 
 #include "Mass.h"
 
-// Preset scenario types for simulation
-enum class ScenarioType
-{
-	SolarSystem,    // Sun, Earth, Moon, Mars
-	BinaryStar,     // Two stars orbiting each other
-	ThreeBody,      // Three equal masses in stable orbit
-	Galaxy          // Many small bodies orbiting a central massive body
-};
+// ScenarioType enum is now defined in framework.h (via pch.h) for global visibility
+// This ensures consistent use across all modules (EpistemotronView, Simulator, etc.)
 
 class Universe
 {

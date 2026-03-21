@@ -143,8 +143,9 @@
     <ClCompile Include="Science\Universe.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Epistemotron.rc" />
-    <ResourceCompile Include="Resource.rc" />
+    
+    <ResourceCompile Include="" />
+    
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\classview.bmp" />

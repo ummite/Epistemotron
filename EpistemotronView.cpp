@@ -27,11 +27,11 @@ constexpr int MAX_TRAIL_POINTS = 1000;                   // Max points per trail
 constexpr double ZOOM_FACTOR = 1.1;                      // Zoom per wheel tick
 
 // Camera rotation
+constexpr double PI = 3.14159265358979323846;            // Pi constant
 constexpr double ROTATION_SENSITIVITY = 0.005;           // Rotation per pixel drag
 constexpr double MAX_PITCH_RADIANS = PI / 2 - 0.1;       // Max pitch (near 90 degrees)
 constexpr double MAX_YAW_RADIANS = PI;                   // Max yaw (180 degrees)
 constexpr double MAX_ROLL_RADIANS = PI / 4;              // Max roll (45 degrees)
-constexpr double PI = 3.14159265358979323846;            // Pi constant
 
 // Mass classification thresholds (kg)
 constexpr double STAR_MASS_THRESHOLD = 1e30;             // Star vs planet
@@ -84,7 +84,6 @@ BEGIN_MESSAGE_MAP(CEpistemotronView, CView)
 	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CEpistemotronView::OnFilePrintPreview)
 	ON_WM_CONTEXTMENU()
-	ON_WM_RBUTTONUP()
 	ON_WM_TIMER()
 	ON_WM_MOUSEWHEEL()
 	ON_WM_KEYDOWN()
@@ -542,10 +541,22 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	}
 
 	// Draw simulation stats
-	statusText += _T("\nIteration: ") + CString::Format(_T("%d"), pUniverse->m_iIteration);
-	statusText += _T("\nBodies: ") + CString::Format(_T("%d"), pUniverse->GetMassCount());
-	statusText += _T("\nStep: ") + CString::Format(_T("%d sec"), m_stepSizeSec);
-	statusText += _T("\nSteps/frame: ") + CString::Format(_T("%d"), m_stepsPerFrame);
+	statusText += _T("\nIteration: ");
+	CString temp;
+	temp.Format(_T("%d"), pUniverse->m_iIteration);
+	statusText += temp;
+
+	statusText += _T("\nBodies: ");
+	temp.Format(_T("%d"), pUniverse->GetMassCount());
+	statusText += temp;
+
+	statusText += _T("\nStep: ");
+	temp.Format(_T("%d sec"), m_stepSizeSec);
+	statusText += temp;
+
+	statusText += _T("\nSteps/frame: ");
+	temp.Format(_T("%d"), m_stepsPerFrame);
+	statusText += temp;
 
 	// Draw energy conservation statistics
 	double totalEnergy = pUniverse->GetTotalEnergy();
@@ -569,11 +580,22 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 
 	// Draw camera stats
 	statusText += _T("\n---");
-	statusText += _T("\nCamera dist: ") + CString::Format(_T("%.0f km"), m_cameraDistance);
-	statusText += _T("\nFOV: ") + CString::Format(_T("%.0f km"), m_fieldOfView);
-	statusText += _T("\nPan: (") + CString::Format(_T("%.0f, %.0f) km"), m_panOffsetX, m_panOffsetY);
-	statusText += _T("\nRotation: (") + CString::Format(_T("%.1f, %.1f, %.1f) deg"),
-		        m_rotationPitch * 180.0 / PI, m_rotationYaw * 180.0 / PI, m_rotationRoll * 180.0 / PI;
+	statusText += _T("\nCamera dist: ");
+	temp.Format(_T("%.0f km"), m_cameraDistance);
+	statusText += temp;
+
+	statusText += _T("\nFOV: ");
+	temp.Format(_T("%.0f km"), m_fieldOfView);
+	statusText += temp;
+
+	statusText += _T("\nPan: (");
+	temp.Format(_T("%.0f, %.0f) km"), m_panOffsetX, m_panOffsetY);
+	statusText += temp;
+
+	statusText += _T("\nRotation: (");
+	temp.Format(_T("%.1f, %.1f, %.1f) deg"),
+		m_rotationPitch * 180.0 / PI, m_rotationYaw * 180.0 / PI, m_rotationRoll * 180.0 / PI);
+	statusText += temp;
 
 	// Draw integrator info
 	statusText += _T("\n---");
@@ -581,7 +603,7 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 
 	// Draw trail status
 	statusText += _T("\n---");
-	statusText += _T("\nTrails: ") + (m_bShowTrails ? _T("ON") : _T("OFF"));
+	statusText += _T("\nTrails: ") + CString(m_bShowTrails ? _T("ON") : _T("OFF"));
 
 	// Draw controls help
 	statusText += _T("\n---");
@@ -927,7 +949,7 @@ void CEpistemotronView::CycleScenario()
 	// Display current scenario name in a tooltip-like message
 	CString msg;
 	msg.Format(_T("Loaded scenario: %s"), GetScenarioName());
-	AfxMessageBox(msg, MB_ICONINFO);
+	AfxMessageBox(msg, MB_ICONINFORMATION);
 }
 
 CString CEpistemotronView::GetScenarioName() const
@@ -1001,10 +1023,22 @@ void CEpistemotronView::OnEndPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/)
 {
 }
 
-void CEpistemotronView::OnRButtonUp(UINT /* nFlags */, CPoint point)
+void CEpistemotronView::OnRButtonUp(UINT nFlags, CPoint point)
 {
-	ClientToScreen(&point);
-	OnContextMenu(this, point);
+	// End rotating if in rotation mode
+	if (m_bRotating)
+	{
+		m_bRotating = FALSE;
+		ReleaseCapture();  // Release mouse capture
+	}
+	else
+	{
+		// Show context menu
+		ClientToScreen(&point);
+		OnContextMenu(this, point);
+	}
+
+	CView::OnRButtonUp(nFlags, point);
 }
 
 void CEpistemotronView::OnContextMenu(CWnd* /* pWnd */, CPoint point)
@@ -1061,7 +1095,7 @@ BOOL CEpistemotronView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 	m_fieldOfView = max(MIN_FIELD_OF_VIEW_KM, min(m_fieldOfView, MAX_FIELD_OF_VIEW_KM));
 
 	Invalidate();
-	return TRUE;
+	return TRUE;  // Handled
 }
 
 void CEpistemotronView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
@@ -1244,15 +1278,6 @@ void CEpistemotronView::OnRButtonDown(UINT nFlags, CPoint point)
 	SetCapture();  // Capture mouse events even when cursor leaves window
 
 	CView::OnRButtonDown(nFlags, point);
-}
-
-void CEpistemotronView::OnRButtonUp(UINT nFlags, CPoint point)
-{
-	// End rotating
-	m_bRotating = FALSE;
-	ReleaseCapture();  // Release mouse capture
-
-	CView::OnRButtonUp(nFlags, point);
 }
 
 // Mouse handlers for camera roll (middle button)

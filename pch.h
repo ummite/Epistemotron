@@ -7,6 +7,10 @@
 #ifndef PCH_H
 #define PCH_H
 
+// Ensure Winsock2.h is included before any MFC headers
+// MFC requires Winsock2.h and will error if winsock.h is included instead
+#include <winsock2.h>
+
 // add headers that you want to pre-compile here
 #include "framework.h"
 

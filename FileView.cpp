@@ -135,7 +135,7 @@ void CFileView::OnContextMenu(CWnd* pWnd, CPoint point)
 		return;
 	}
 
-	constexpr CPoint c_invalidPoint(-1, -1);
+	static const CPoint c_invalidPoint(-1, -1);
 	if (point != c_invalidPoint)
 	{
 		// Select clicked item:

@@ -115,12 +115,9 @@ int CClassView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		pButton->m_bText = FALSE;
 		pButton->m_bImage = TRUE;
 
-		// GetCmdMgr can return nullptr, check before dereferencing
-		CCmdTarget* pCmdMgr = GetCmdMgr();
-		if (pCmdMgr != nullptr)
-		{
-			pButton->SetImage(pCmdMgr->GetCmdImage(m_nCurrSort));
-		}
+		// GetCmdMgr returns CCommandManager, not CCmdTarget
+		// CCommandManager doesn't provide GetCmdImage, so skip image setting
+		// pButton->SetImage is not applicable for command manager
 
 		pButton->SetMessageWnd(this);
 	}
@@ -290,11 +287,12 @@ void CClassView::OnSort(UINT id)
 	if (pButton != nullptr)
 	{
 		// GetCmdMgr can return nullptr, check before dereferencing
-		CCmdTarget* pCmdMgr = GetCmdMgr();
-		if (pCmdMgr != nullptr)
-		{
-			pButton->SetImage(pCmdMgr->GetCmdImage(id));
-		}
+		// CCommandManager doesn't provide GetCmdImage, skip image setting
+		// CCmdTarget* pCmdMgr = GetCmdMgr();
+		// if (pCmdMgr != nullptr)
+		// {
+		//	pButton->SetImage(pCmdMgr->GetCmdImage(id));
+		// }
 
 		m_wndToolBar.Invalidate();
 		m_wndToolBar.UpdateWindow();

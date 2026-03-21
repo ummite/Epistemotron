@@ -76,9 +76,9 @@ void Mass::EffectuerPasChangementVitesse(const Universe& universe, int stepSize)
     double velocityChangeY = 0.0;
     double velocityChangeZ = 0.0;
 
-    for (int i = 0; i < universe.m_arrMasses.GetSize(); i++)
+    for (int i = 0; i < universe.GetMassCount(); i++)
     {
-        const Mass& otherMass = universe.m_arrMasses.GetAt(i);
+        const Mass& otherMass = universe.GetAt(i);
 
         const double deltaX = otherMass.m_X - m_X;
         const double deltaY = otherMass.m_Y - m_Y;

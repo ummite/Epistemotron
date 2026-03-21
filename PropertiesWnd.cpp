@@ -22,7 +22,7 @@ CPropertiesWnd::CPropertiesWnd() noexcept
 
 CPropertiesWnd::~CPropertiesWnd()
 {
-	m_fntPropList.Destroy();  // Free GDI resource
+	m_fntPropList.DeleteObject();  // Free GDI resource
 }
 
 BEGIN_MESSAGE_MAP(CPropertiesWnd, CDockablePane)
@@ -262,8 +262,8 @@ void CPropertiesWnd::OnSettingChange(UINT uFlags, LPCTSTR lpszSection)
 
 void CPropertiesWnd::SetPropListFont()
 {
-	// Use Destroy() for proper MFC-safe cleanup
-	m_fntPropList.Destroy();
+	// Use DeleteObject() for proper MFC-safe cleanup
+	m_fntPropList.DeleteObject();
 
 	LOGFONT lf;
 	afxGlobalData.fontRegular.GetLogFont(&lf);

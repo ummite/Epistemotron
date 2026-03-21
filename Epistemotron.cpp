@@ -123,7 +123,7 @@ BOOL CEpistemotronApp::InitInstance()
 		RUNTIME_CLASS(CEpistemotronView));
 	if (!pDocTemplate)
 	{
-		AfxMessageBox(IDS_APP_RUNNING_LOW_ON_RESOURCES);
+		AfxMessageBox(_T("Epistemotron: Low on resources!"));
 		AfxOleTerm(FALSE);
 		return FALSE;
 	}
@@ -133,7 +133,7 @@ BOOL CEpistemotronApp::InitInstance()
 	CMainFrame* pMainFrame = new CMainFrame;
 	if (!pMainFrame)
 	{
-		AfxMessageBox(IDS_APP_RUNNING_LOW_ON_RESOURCES);
+		AfxMessageBox(_T("Epistemotron: Low on resources!"));
 		AfxOleTerm(FALSE);
 		return FALSE;  // Memory allocation failed
 	}
