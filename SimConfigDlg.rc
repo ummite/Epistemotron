@@ -1,36 +1,8 @@
 // SimConfigDlg.rc - Dialog resource for simulation configuration
-// Append this content to Resource.rc after the existing resources
-
-IDD_SIM_CONFIG_DLG DIALOGEX 0, 0, 420, 280
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-EXSTYLE WS_EX_APPWINDOW
-CAPTION "Simulation Configuration"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
-BEGIN
-    GROUPBOX        "Simulation Parameters",IDC_STATIC,10,10,400,100
-    LTEXT           "Number of Bodies:",IDC_STATIC,20,28,70,8
-    EDITTEXT        IDC_EDIT_NUM_BODIES,100,26,60,14,ES_NUMBER | WS_BORDER
-    LTEXT           "Range: 1-10000",IDC_STATIC,170,28,70,8
-
-    LTEXT           "Step Size (seconds):",IDC_STATIC,20,52,70,8
-    EDITTEXT        IDC_EDIT_STEP_SIZE,100,50,60,14,ES_NUMBER | WS_BORDER
-    LTEXT           "Range: 1-31536000",IDC_STATIC,170,52,70,8
-
-    LTEXT           "Steps Per Frame:",IDC_STATIC,20,76,70,8
-    EDITTEXT        IDC_EDIT_STEPS_PER_FRAME,100,74,60,14,ES_NUMBER | WS_BORDER
-    LTEXT           "Range: 1-10000",IDC_STATIC,170,76,70,8
-
-    GROUPBOX        "Random Generation",IDC_STATIC,10,120,400,60
-    CHECKBOX        "Use Random Positions",IDC_CHECK_RANDOM,20,135,100,10
-    LTEXT           "Random Radius (km):",IDC_STATIC,20,155,70,8
-    EDITTEXT        IDC_EDIT_RANDOM_RADIUS,100,153,80,14,WS_BORDER
-    LTEXT           "Range: 0.001-1e18",IDC_STATIC,190,155,70,8
-
-    GROUPBOX        "Simulation Description",IDC_STATIC,10,190,400,40
-    LTEXT           "Description:",IDC_STATIC,20,205,40,8
-    EDITTEXT        IDC_EDIT_DESCRIPTION,65,203,230,14,ES_AUTOHSCROLL | WS_BORDER
-    PUSHBUTTON      "Randomize Description",IDC_BTN_RANDOMIZE,310,202,100,14
-
-    DEFPUSHBUTTON   "OK",IDOK,300,245,75,20
-    PUSHBUTTON      "Cancel",IDCANCEL,380,245,75,20
-END
+// OBSOLETE: This dialog resource is now defined in Resource.rc to avoid
+// duplicate definition errors. Do not include this file in the build.
+// The IDD_SIM_CONFIG_DLG resource is defined in Resource.rc with proper
+// winuser.h includes for DS_SETFONT and other dialog style constants.
+//
+// PLACEHOLDER - This file is kept for reference only.
+// If you need to modify the dialog, edit Resource.rc instead.

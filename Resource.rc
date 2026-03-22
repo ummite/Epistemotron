@@ -1,5 +1,6 @@
 // Resource.rc : resource script
 #include "targetver.h"
+#include <winuser.h>
 #include "Resource.h"
 
 #ifdef APSTUDIO_INVOKED
@@ -37,5 +38,3 @@ END
 
 // Win32 manifest to enable visual styles
 1 RT_MANIFEST "res\app.manifest"
-
-#endif

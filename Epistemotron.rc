@@ -1,28 +1,287 @@
-// Minimal Epistemotron.rc - C++ code compilation only
-// Full resource file intentionally simplified to avoid RC.exe issues with VS Insiders
-
-#include "resource.h"
+// Epistemotron.rc - Resource script for MFC application
+#include "targetver.h"
+#include "Resource.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
+#include "afxres.h"
+#undef APSTUDIO_READONLY_SYMBOLS
 
-// Minimal menu definitions
+#ifdef APSTUDIO_INVOKED
+#ifndef APSTUDIO_READONLY_SYMBOLS
+#define _APS_NO_MFC
+#define _APS_NEXT_RESOURCE_VALUE        327
+#define _APS_NEXT_COMMAND_VALUE         32970
+#define _APS_NEXT_CONTROL_VALUE         1000
+#define _APS_NEXT_SYMED_VALUE           310
+#endif
+#endif
+
+//------------------------------------------------------------------------------
+// MAIN MENU (IDR_MAINFRAME is used as menu by LoadFrame)
+//------------------------------------------------------------------------------
 IDR_MAINFRAME MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        MENUITEM "E&xit", 57667  // ID_APP_EXIT (standard MFC ID)
+        MENUITEM "&New\tCtrl+N", ID_FILE_NEW
+        MENUITEM "&Open\tCtrl+O", ID_FILE_OPEN
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", ID_APP_EXIT
     END
+
+    POPUP "&Simulation"
+    BEGIN
+        MENUITEM "&Start\tF5", ID_SIMULATION_START
+        MENUITEM "&Pause\tF6", ID_SIMULATION_PAUSE
+        MENUITEM "&Resume\tF7", ID_SIMULATION_RESUME
+        MENUITEM "&Stop\tF8", ID_SIMULATION_STOP
+        MENUITEM "&Reset", ID_SIMULATION_RESET
+        MENUITEM SEPARATOR
+        MENUITEM "Speed &Up", ID_SIMULATION_SPEED_UP
+        MENUITEM "Speed &Down", ID_SIMULATION_SLOW_DOWN
+        MENUITEM "&Step", ID_SIMULATION_STEP
+        MENUITEM SEPARATOR
+        MENUITEM "&Configuration...", ID_SIMULATION_CONFIG
+    END
+
+    POPUP "&Scenario"
+    BEGIN
+        MENUITEM "&Solar System", ID_SCENARIO_SOLAR_SYSTEM
+        MENUITEM "&Binary Star", ID_SCENARIO_BINARY_STAR
+        MENUITEM "&Three-Body", ID_SCENARIO_THREE_BODY
+        MENUITEM "&Galaxy", ID_SCENARIO_GALAXY
+        MENUITEM SEPARATOR
+        MENUITEM "&Next Scenario", ID_SCENARIO_NEXT
+    END
+
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Toolbar", ID_VIEW_TOOLBAR
+        MENUITEM "&Status Bar", ID_VIEW_STATUS_BAR
+        MENUITEM SEPARATOR
+        MENUITEM "&File View", ID_VIEW_FILEVIEW
+        MENUITEM "&Class View", ID_VIEW_CLASSVIEW
+        MENUITEM "&Output", ID_VIEW_OUTPUTWND
+        MENUITEM "&Properties", ID_VIEW_PROPERTIESWND
+        MENUITEM SEPARATOR
+        MENUITEM "&Customize...", ID_VIEW_CUSTOMIZE
+    END
+
+    POPUP "&Window"
+    BEGIN
+        MENUITEM "&New Window", ID_WINDOW_NEW
+        MENUITEM "&Arrange All", ID_WINDOW_ARRANGE
+        MENUITEM "&Cascade", ID_WINDOW_CASCADE
+        MENUITEM "&Tile Horizontal", ID_WINDOW_TILE_HORZ
+        MENUITEM "&Tile Vertical", ID_WINDOW_TILE_VERT
+        MENUITEM SEPARATOR
+        MENUITEM "&Close All", ID_CLOSE_ALL
+    END
+
     POPUP "&Help"
     BEGIN
-        MENUITEM "&About Epistemotron", 57664  // ID_APP_ABOUT (standard MFC ID)
+        MENUITEM "&About Epistemotron...", ID_APP_ABOUT
     END
 END
 
-// String table with minimal entries
+//------------------------------------------------------------------------------
+// TOOLBAR BITMAPS
+//------------------------------------------------------------------------------
+// Standard toolbar bitmap (16x15 icons)
+IDR_MAINFRAME_256 BITMAP "res\Toolbar.bmp"
+
+//------------------------------------------------------------------------------
+// STRING TABLES
+//------------------------------------------------------------------------------
 STRINGTABLE
 BEGIN
-    1       "Epistemotron"
-    61184   "Ready"
+    IDS_HELLO               "Hello, World"
+    IDS_APP_TITLE           "Epistemotron"
+    IDS_APP_FULL_TITLE      "Epistemotron - Gravitational N-Body Simulator"
+    IDS_STATUS_PANE1        "Ready"
+    IDS_STATUS_PANE2        "Mode"
+    IDS_TOOLBAR_STANDARD    "Standard"
+    IDS_TOOLBAR_CUSTOMIZE   "Customize"
+    IDS_BUILD_TAB           "Build"
+    IDS_DEBUG_TAB           "Debug"
+    IDS_FIND_TAB            "Find"
+    IDS_EXPLORER            "Explorer"
+    IDS_EDIT_MENU           "Edit Menu"
+    IDS_FILE_VIEW           "File View"
+    IDS_CLASS_VIEW          "Class View"
+    IDS_OUTPUT_WND          "Output"
+    IDS_PROPERTIES_WND      "Properties"
+    IDS_SIMULATION_RUNNING  "Running"
+    IDS_SIMULATION_PAUSED   "Paused"
+    IDS_SIMULATION_STOPPED  "Stopped"
+    IDS_SCENARIO_SOLAR_SYSTEM   "Solar System"
+    IDS_SCENARIO_BINARY_STAR    "Binary Star"
+    IDS_SCENARIO_THREE_BODY     "Three-Body Problem"
+    IDS_SCENARIO_GALAXY         "Galaxy"
 END
 
-#undef APSTUDIO_READONLY_SYMBOLS
+//------------------------------------------------------------------------------
+// ICONS
+//------------------------------------------------------------------------------
+IDR_MAINFRAME ICON "res\Epistemotron.ico"
+IDR_EpistemotronTYPE ICON "res\EpistemotronDoc.ico"
+
+IDI_FILE_VIEW ICON "res\file_view.ico"
+IDI_FILE_VIEW_HC ICON "res\file_view_hc.ico"
+IDI_CLASS_VIEW ICON "res\class_view.ico"
+IDI_CLASS_VIEW_HC ICON "res\class_view_hc.ico"
+IDI_OUTPUT_WND ICON "res\output_wnd.ico"
+IDI_OUTPUT_WND_HC ICON "res\output_wnd_hc.ico"
+IDI_PROPERTIES_WND ICON "res\properties_wnd.ico"
+IDI_PROPERTIES_WND_HC ICON "res\properties_wnd_hc.ico"
+
+//------------------------------------------------------------------------------
+// BITMAPS for docking panes
+//------------------------------------------------------------------------------
+IDB_FILE_VIEW BITMAP "res\fileview.bmp"
+IDB_FILE_VIEW_24 BITMAP "res\fileview.bmp"
+IDB_CLASS_VIEW BITMAP "res\classview.bmp"
+IDB_CLASS_VIEW_24 BITMAP "res\classview.bmp"
+IDB_EXPLORER_24 BITMAP "res\explorer.bmp"
+IDB_SORT_24 BITMAP "res\sort.bmp"
+IDB_MENU_IMAGES_24 BITMAP "res\menuimages.bmp"
+IDB_PROPERTIES_HC BITMAP "res\properties_hc.bmp"
+
+//------------------------------------------------------------------------------
+// TOOLBARS for docking panes
+//------------------------------------------------------------------------------
+IDR_EXPLORER TOOLBAR
+BEGIN
+    BUTTON ID_SORTING_GROUPBYTYPE
+    BUTTON ID_SORTING_SORTALPHABETIC
+    BUTTON ID_SORTING_SORTBYTYPE
+    BUTTON ID_SORTING_SORTBYACCESS
+    BUTTON ID_NEW_FOLDER
+    BUTTON ID_OPEN
+    BUTTON ID_OPEN_WITH
+    BUTTON ID_DUMMY_COMPILE
+    BUTTON ID_CLASS_ADD_MEMBER_FUNCTION
+    BUTTON ID_CLASS_ADD_MEMBER_VARIABLE
+    BUTTON ID_CLASS_DEFINITION
+    BUTTON ID_CLASS_PROPERTIES
+    BUTTON ID_PROPERTIES
+    BUTTON ID_SORT_MENU
+    BUTTON SEPARATOR
+    BUTTON ID_EXPAND_ALL
+END
+
+IDR_SORT TOOLBAR
+BEGIN
+    BUTTON ID_SORTING_GROUPBYTYPE
+    BUTTON ID_SORTING_SORTALPHABETIC
+    BUTTON ID_SORTING_SORTBYTYPE
+    BUTTON ID_SORTING_SORTBYACCESS
+END
+
+IDR_MENU_IMAGES STANDARD_TOOLBAR
+BEGIN
+    BUTTON ID_FILE_NEW
+    BUTTON ID_FILE_OPEN
+    BUTTON ID_FILE_SAVE
+    BUTTON ID_FILE_SAVE_AS
+    BUTTON SEPARATOR
+    BUTTON ID_EDIT_CUT
+    BUTTON ID_EDIT_COPY
+    BUTTON ID_EDIT_PASTE
+    BUTTON SEPARATOR
+    BUTTON ID_EDIT_FIND
+    BUTTON ID_EDIT_REPLACE
+END
+
+IDR_PROPERTIES TOOLBAR
+BEGIN
+    BUTTON ID_PROPERTIES1
+    BUTTON ID_PROPERTIES2
+    BUTTON ID_EXPAND_ALL
+    BUTTON SEPARATOR
+    BUTTON ID_SORTPROPERTIES
+END
+
+IDR_OUTPUT_POPUP MENU
+BEGIN
+    POPUP "&Build"
+    BEGIN
+        MENUITEM "Clear &All", ID_BUILD_CLEAN_ALL
+        MENUITEM "&Remove Tab", ID_WINDOW_CASCADE
+    END
+    POPUP "&Debug"
+    BEGIN
+        MENUITEM "&Remove Tab", ID_DEBUG_END
+    END
+    POPUP "&Find"
+    BEGIN
+        MENUITEM "&Remove Tab", ID_EDIT_FIND_NEXT
+    END
+END
+
+IDR_POPUP_EXPLORER MENU
+BEGIN
+    POPUP "&Sort By"
+    BEGIN
+        MENUITEM "&Group by Type", ID_SORTING_GROUPBYTYPE
+        MENUITEM "&Alphabetical", ID_SORTING_SORTALPHABETIC
+        MENUITEM "Type", ID_SORTING_SORTBYTYPE
+        MENUITEM "&Access", ID_SORTING_SORTBYACCESS
+    END
+    POPUP
+    BEGIN
+        MENUITEM "&Add Class...", ID_CLASS_ADD
+        MENUITEM "&Add File...", ID_FILE_ADD
+    END
+    POPUP
+    BEGIN
+        MENUITEM "&Properties...", ID_PROPERTIES
+    END
+END
+
+IDR_POPUP_SORT MENU
+BEGIN
+    POPUP "&Sort By"
+    BEGIN
+        MENUITEM "&Group by Type", ID_SORTING_GROUPBYTYPE
+        MENUITEM "&Alphabetical", ID_SORTING_SORTALPHABETIC
+        MENUITEM "Type", ID_SORTING_SORTBYTYPE
+        MENUITEM "&Access", ID_SORTING_SORTBYACCESS
+    END
+END
+
+IDR_POPUP_EDIT MENU
+BEGIN
+    POPUP "&Find"
+    BEGIN
+        MENUITEM "&Find...", ID_EDIT_FIND
+        MENUITEM "Find &Next", ID_EDIT_FIND_NEXT
+        MENUITEM "&Replace...", ID_EDIT_REPLACE
+    END
+    POPUP "&Special"
+    BEGIN
+        MENUITEM "Rename...", ID_RENAME
+        MENUITEM "Move...", ID_MOVE
+    END
+END
+
+//------------------------------------------------------------------------------
+// DIALOGS
+//------------------------------------------------------------------------------
+IDD_ABOUTBOX DIALOGEX 0, 0, 231, 58
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "About Epistemotron"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    ICON            IDR_MAINFRAME,57638,18,18,20,20
+    LTEXT           "Epistemotron",57639,42,18,150,8
+    LTEXT           "Gravitational N-Body Simulation",57640,42,40,150,8
+    LTEXT           "Version 1.0",57641,42,58,150,8
+    DEFPUSHBUTTON   "OK",IDOK,156,18,50,14
+END
+
+//------------------------------------------------------------------------------
+// MANIFEST
+//------------------------------------------------------------------------------
+1 RT_MANIFEST "res\app.manifest"

@@ -56,7 +56,8 @@
 // WINDOW MANAGEMENT COMMANDS
 //------------------------------------------------------------------------------
 #define ID_WINDOW_MANAGER               131
-#define ID_WINDOW_NEW                   132   // Missing ID added
+// ID_WINDOW_NEW, ID_WINDOW_ARRANGE, ID_WINDOW_CASCADE, ID_WINDOW_TILE_HORZ,
+// ID_WINDOW_TILE_VERT, ID_CLOSE_ALL are all defined in afxres.h (MFC), do not redefine
 
 //------------------------------------------------------------------------------
 // VIEW COMMANDS - DOCKABLE PANES
@@ -203,6 +204,7 @@
 //------------------------------------------------------------------------------
 // BUILD/DEBUG STRING IDS (IDS_*_TAB)
 //------------------------------------------------------------------------------
+#define IDS_HELLO                       1
 #define IDS_BUILD_TAB                   300
 #define IDS_DEBUG_TAB                   301
 #define IDS_FIND_TAB                    302

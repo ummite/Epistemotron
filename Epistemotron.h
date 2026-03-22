@@ -26,7 +26,7 @@ public:
 	virtual int ExitInstance();
 
 // Implementation
-	UINT  m_nAppLook;
+	UINT  m_nAppLook{ID_VIEW_APPLOOK_VS_2008};  // Default application look
 	BOOL  m_bHiColorIcons;
 
 	virtual void PreLoadState();

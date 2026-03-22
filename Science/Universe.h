@@ -29,7 +29,7 @@ public:
 	Universe* GenerateSimulationStep(int p_iStepSize);
 	Mass& GetAt(int p_iPos) { return m_arrMasses.GetAt(p_iPos); }
 	const Mass& GetAt(int p_iPos) const { return m_arrMasses.GetAt(p_iPos); }
-	int GetMassCount() const { return m_arrMasses.GetSize(); }
+	int GetMassCount() const { return static_cast<int>(m_arrMasses.GetSize()); }
 	void ExportPPM(int p_iWidth = 800, int p_iHeight = 600);
 
 	// Optimized symplectic Euler integration for better energy conservation

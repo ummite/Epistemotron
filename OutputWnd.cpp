@@ -95,15 +95,15 @@ void COutputWnd::AdjustHorzScroll(CListBox& wndListBox)
 	}
 
 	int cxExtentMax = 0;
-	int nCount = wndListBox.GetCount();
+	INT_PTR nCount = wndListBox.GetCount();
 
 	// Cache text in a single CString to avoid repeated allocations
 	CString strItem;
 	strItem.Empty();
 
-	for (int i = 0; i < nCount; i ++)
+	for (INT_PTR i = 0; i < nCount; i ++)
 	{
-		wndListBox.GetText(i, strItem);
+		wndListBox.GetText(static_cast<int>(i), strItem);
 		cxExtentMax = max(cxExtentMax, (int)dc.GetTextExtent(strItem).cx);
 	}
 
@@ -202,7 +202,7 @@ void COutputList::OnContextMenu(CWnd* /*pWnd*/, CPoint point)
 void COutputList::OnEditCopy()
 {
 	// Copy selected items text to clipboard
-	int nSelCount = GetSelCount();
+	INT_PTR nSelCount = GetSelCount();
 	if (nSelCount <= 0)
 	{
 		TRACE0("COutputList::OnEditCopy: No text selected\n");
@@ -210,10 +210,10 @@ void COutputList::OnEditCopy()
 	}
 
 	CString strText;
-	int nIndex = GetCurSel();
+	INT_PTR nIndex = GetCurSel();
 	if (nIndex != LB_ERR)
 	{
-		GetText(nIndex, strText);
+		GetText(static_cast<int>(nIndex), strText);
 	}
 
 	if (strText.IsEmpty())

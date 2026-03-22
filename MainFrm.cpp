@@ -18,8 +18,8 @@ IMPLEMENT_DYNAMIC(CMainFrame, CMDIFrameWndEx)
 // Constants for user-defined toolbar management
 const int  iMaxUserToolbars = 10;
 const int  iFirstUserToolbarOffset = 40;  // Offset from AFX_IDW_CONTROLBAR_FIRST
-const UINT uiFirstUserToolBarId = AFX_IDW_CONTROLBAR_FIRST + iFirstUserToolbarOffset;
-const UINT uiLastUserToolBarId = uiFirstUserToolBarId + iMaxUserToolbars - 1;
+const int uiFirstUserToolBarId = AFX_IDW_CONTROLBAR_FIRST + iFirstUserToolbarOffset;
+const int uiLastUserToolBarId = uiFirstUserToolBarId + iMaxUserToolbars - 1;
 
 // Constants for docking window dimensions (in pixels)
 const int iDockingWindowWidth = 250;
@@ -90,7 +90,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;      // fail to create
 	}
 
-	if (!m_wndToolBar.LoadToolBar(theApp.m_bHiColorIcons ? IDR_MAINFRAME_256 : IDR_MAINFRAME))
+	if (!m_wndToolBar.LoadToolBar(IDR_MAINFRAME_256))
 	{
 		TRACE0("Failed to load toolbar\n");
 		m_wndToolBar.DestroyWindow();
@@ -137,7 +137,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	EnableAutoHidePanes(CBRS_ALIGN_ANY);
 
 	// Load menu item image (not placed on any standard toolbars):
-	CMFCToolBar::AddToolBarForImageCollection(IDR_MENU_IMAGES, theApp.m_bHiColorIcons ? IDB_MENU_IMAGES_24 : 0);
+	CMFCToolBar::AddToolBarForImageCollection(IDB_MENU_IMAGES_24, 0);
 
 	// create docking windows
 	if (!CreateDockingWindows())

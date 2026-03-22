@@ -39,7 +39,7 @@ constexpr double PLANET_MASS_THRESHOLD = 1e26;           // Planet vs moon/aster
 
 // Simulation
 constexpr int MAX_STEPS_PER_FRAME = 100;                 // Maximum steps per frame
-constexpr UINT TIMER_ID = 1;                             // Timer identifier
+constexpr UINT_PTR TIMER_ID = 1;                          // Timer identifier
 constexpr UINT TIMER_INTERVAL_MS = 100;                  // 10 FPS target
 
 // Scenario step sizes (seconds)
@@ -668,7 +668,7 @@ void CEpistemotronView::PauseSimulation()
 
 	if (!KillTimer(m_timerId))
 	{
-		TRACE(_T("Failed to kill timer %u\n"), m_timerId);
+		TRACE(_T("Failed to kill timer %Iu\n"), m_timerId);
 	}
 	m_timerId = 0;
 	m_simulationState = SimulationState::Paused;

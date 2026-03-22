@@ -119,6 +119,7 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="resource1.h" />
     <ClInclude Include="Science\Environment.h" />
+    <ClInclude Include="SimConfigDlg.h" />
     <ClInclude Include="Science\Mass.h" />
     <ClInclude Include="Science\Simulator.h" />
     <ClInclude Include="Science\Universe.h" />
@@ -138,14 +139,13 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PropertiesWnd.cpp" />
+    <ClCompile Include="SimConfigDlg.cpp" />
     <ClCompile Include="Science\Mass.cpp" />
     <ClCompile Include="Science\Simulator.cpp" />
     <ClCompile Include="Science\Universe.cpp" />
   </ItemGroup>
   <ItemGroup>
-    
-    <ResourceCompile Include="" />
-    
+    <ResourceCompile Include="Epistemotron.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\classview.bmp" />

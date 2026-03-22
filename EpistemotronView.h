@@ -28,7 +28,6 @@ public:
 	void StepSimulation();
 	void SpeedUp();
 	void SlowDown();
-	void ConfigureSimulation();  // Open configuration dialog
 	SimulationState GetSimulationState() const { return m_simulationState; }
 
 // Scenario selection
@@ -65,7 +64,7 @@ public:
 protected:
 	// Simulation state
 	SimulationState m_simulationState;
-	UINT m_timerId;
+	UINT_PTR m_timerId;
 	int m_stepsPerFrame;
 	int m_stepSizeSec;  // Time step in seconds
 	IntegratorType m_integratorType;  // Integrator selection (now defined in pch.h via framework.h)
@@ -98,7 +97,6 @@ protected:
 
 	// Timer handler
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
-	afx_msg void OnSimulationTimer();
 
 	// Camera control handlers
 	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);

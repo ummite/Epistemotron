@@ -303,7 +303,7 @@ static void ComputeAccelerations(
 
 Universe* Universe::GenerateSimulationStep(int p_iStepSize)
 {
-	Universe* poUniverse = new Universe(m_arrMasses.GetSize());
+	Universe* poUniverse = new Universe(static_cast<int>(m_arrMasses.GetSize()));
 	poUniverse->m_iIteration = m_iIteration + 1;
 	poUniverse->m_arrMasses.Copy(m_arrMasses);
 	poUniverse->SimulateFrom(*this, p_iStepSize);
@@ -312,7 +312,7 @@ Universe* Universe::GenerateSimulationStep(int p_iStepSize)
 
 void Universe::Randomize()
 {
-	for (int i = 0; i < m_arrMasses.GetSize(); i++)
+	for (int i = 0; i < static_cast<int>(m_arrMasses.GetSize()); i++)
 	{
 		// Use operator[] instead of GetAt() to get non-const reference
 		m_arrMasses[i].Randomize();
@@ -322,7 +322,7 @@ void Universe::Randomize()
 // Export universe visualization as PPM/BMP
 void Universe::ExportPPM(int p_iWidth, int p_iHeight)
 {
-	if (m_arrMasses.GetSize() < 1)
+	if (static_cast<int>(m_arrMasses.GetSize()) < 1)
 	{
 		return;  // Nothing to export
 	}
@@ -331,7 +331,7 @@ void Universe::ExportPPM(int p_iWidth, int p_iHeight)
 
 	// Find maximum distance from center for zoom calculation
 	double dblDistanceMax = 1.0;
-	for (int i = 1; i < m_arrMasses.GetSize(); i++)
+	for (int i = 1; i < static_cast<int>(m_arrMasses.GetSize()); i++)
 	{
 		double dblNewDistance = roUniverseCenter.Distance(m_arrMasses.GetAt(i));
 		if (dblNewDistance > dblDistanceMax)
@@ -353,7 +353,7 @@ void Universe::ExportPPM(int p_iWidth, int p_iHeight)
 	const int centerX = p_iWidth / 2;
 	const int centerY = p_iHeight / 2;
 
-	for (int i = 0; i < m_arrMasses.GetSize(); i++)
+	for (int i = 0; i < static_cast<int>(m_arrMasses.GetSize()); i++)
 	{
 		const Mass& roMass = m_arrMasses.GetAt(i);
 		const int x = static_cast<int>((roMass.m_X - roUniverseCenter.m_X) / dblXStep) + centerX;
@@ -392,7 +392,7 @@ void Universe::SimulateFrom(const Universe& p_roUniverse, int p_iStepSize)
 	// For each mass, we use the OLD positions (from p_roUniverse) to compute forces,
 	// then update velocities, then update positions using new velocities.
 
-	const int nMassCount = m_arrMasses.GetSize();
+	const int nMassCount = static_cast<int>(m_arrMasses.GetSize());
 	const double dt = static_cast<double>(p_iStepSize);
 
 	// Extract positions and masses from source universe for efficient computation
@@ -510,7 +510,7 @@ static void ComputeAccelerations(
 // much better than Euler methods, especially for orbital mechanics.
 void Universe::SimulateFromVelocityVerlet(const Universe& p_roUniverse, int p_iStepSize)
 {
-	const int nMassCount = m_arrMasses.GetSize();
+	const int nMassCount = static_cast<int>(m_arrMasses.GetSize());
 	const double dt = static_cast<double>(p_iStepSize);
 
 	// Storage for positions, velocities, and accelerations
@@ -604,7 +604,7 @@ void Universe::SimulateFromVelocityVerlet(const Universe& p_roUniverse, int p_iS
 double Universe::GetTotalKineticEnergy() const
 {
 	double totalKE = 0.0;
-	int n = m_arrMasses.GetSize();
+	const int n = static_cast<int>(m_arrMasses.GetSize());
 	for (int i = 0; i < n; i++)
 	{
 		const Mass& mass = m_arrMasses.GetAt(i);
@@ -618,7 +618,7 @@ double Universe::GetTotalKineticEnergy() const
 double Universe::GetTotalPotentialEnergy() const
 {
 	double totalPE = 0.0;
-	const int n = m_arrMasses.GetSize();
+	const int n = static_cast<int>(m_arrMasses.GetSize());
 
 	constexpr double KM_TO_METER = 1000.0;
 	constexpr double KM_TO_METER_SQUARED = 1000000.0;  // (1000)^2
@@ -668,7 +668,7 @@ void Universe::GetTotalLinearMomentum(double& out_px, double& out_py, double& ou
 	out_py = 0.0;
 	out_pz = 0.0;
 
-	int n = m_arrMasses.GetSize();
+	const int n = static_cast<int>(m_arrMasses.GetSize());
 	for (int i = 0; i < n; i++)
 	{
 		const Mass& mass = m_arrMasses.GetAt(i);
@@ -695,7 +695,7 @@ void Universe::GetTotalAngularMomentum(double& out_Lx, double& out_Ly, double& o
 	out_Ly = 0.0;
 	out_Lz = 0.0;
 
-	int n = m_arrMasses.GetSize();
+	const int n = static_cast<int>(m_arrMasses.GetSize());
 	for (int i = 0; i < n; i++)
 	{
 		const Mass& mass = m_arrMasses.GetAt(i);

@@ -32,6 +32,7 @@ END_MESSAGE_MAP()
 // CEpistemotronApp construction
 
 CEpistemotronApp::CEpistemotronApp() noexcept
+	: m_nAppLook(ID_VIEW_APPLOOK_VS_2008)  // Default application look
 {
 	m_bHiColorIcons = TRUE;
 

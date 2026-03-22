@@ -13,6 +13,8 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
 
 public:
+	virtual void OnOK();
+
 	// Configuration values
 	int m_numBodies;
 	int m_stepSizeSec;
