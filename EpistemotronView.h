@@ -235,6 +235,10 @@ protected:
 	afx_msg void OnStateSave();
 	afx_msg void OnStateLoad();
 
+	// Export command handlers
+	afx_msg void OnExportFrame();
+	afx_msg void OnExportSequence();
+
 	DECLARE_MESSAGE_MAP()
 };
 

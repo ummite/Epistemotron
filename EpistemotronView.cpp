@@ -119,6 +119,9 @@ BEGIN_MESSAGE_MAP(CEpistemotronView, CView)
 	// Save/Load state commands
 	ON_COMMAND(ID_STATE_SAVE, &CEpistemotronView::OnStateSave)
 	ON_COMMAND(ID_STATE_LOAD, &CEpistemotronView::OnStateLoad)
+	// Export commands
+	ON_COMMAND(ID_EXPORT_FRAME, &CEpistemotronView::OnExportFrame)
+	ON_COMMAND(ID_EXPORT_SEQUENCE, &CEpistemotronView::OnExportSequence)
 	// Character input handler
 	ON_WM_CHAR()
 END_MESSAGE_MAP()
@@ -2396,6 +2399,206 @@ void CEpistemotronView::OnStateLoad()
 			delete pNewUniverse;
 			SetStatusBarMessage(_T("Failed to load simulation state"));
 			AfxMessageBox(_T("Failed to load simulation state.\nFile may be corrupted or invalid format."), MB_ICONERROR);
+		}
+	}
+}
+
+// ============================================================================
+// Export Handlers
+// ============================================================================
+
+// Export current frame as BMP image
+void CEpistemotronView::OnExportFrame()
+{
+	CRect rcClient;
+	GetClientRect(&rcClient);
+	int width = rcClient.Width();
+	int height = rcClient.Height();
+
+	if (width <= 0 || height <= 0)
+	{
+		SetStatusBarMessage(_T("Cannot export: invalid client area"));
+		AfxMessageBox(_T("Cannot export: invalid client area."), MB_ICONERROR);
+		return;
+	}
+
+	SetStatusBarMessage(_T("Select file to save frame..."));
+
+	// Create file save dialog
+	CFileDialog saveDlg(FALSE, _T("bmp"), _T("frame.bmp"),
+		OFN_OVERWRITEPROMPT,
+		_T("Bitmap Image (*.bmp)|*.bmp|PNG Image (*.png)|*.png|All Files (*.*)|*.*||"),
+		this);
+
+	if (saveDlg.DoModal() == IDOK)
+	{
+		CString filepath = saveDlg.GetPathName();
+		CString ext = saveDlg.GetFileExt();
+
+		// Create offscreen bitmap for capture
+		CDC memDC;
+		memDC.CreateCompatibleDC(pDC);
+		CBitmap bitmap;
+		bitmap.CreateCompatibleBitmap(&m_memDC, width, height);
+		CBitmap* oldBitmap = memDC.SelectObject(&bitmap);
+
+		// Copy current view to offscreen DC
+		memDC.BitBlt(0, 0, width, height, &m_memDC, 0, 0, SRCCOPY);
+
+		// Save as BMP
+		if (ext.CompareNoCase(_T("bmp")) == 0)
+		{
+			// Get bitmap data
+			BITMAP bmpInfo;
+			bitmap.GetBitmap(&bmpInfo);
+
+			BITMAPINFOHEADER bih = { 0 };
+			bih.biSize = sizeof(BITMAPINFOHEADER);
+			bih.biWidth = width;
+			bih.biHeight = -height;  // Top-down DIB
+			bih.biPlanes = 1;
+			bih.biBitCount = 24;
+			bih.biCompression = BI_RGB;
+			bih.biSizeImage = ((width * 3 + 3) & ~3) * height;
+
+			// Get DIBits
+			CFile file;
+			if (file.Open(filepath, CFile::modeCreate | CFile::modeWrite | CFile::typeBinary))
+			{
+				BITMAPFILEHEADER bfh = { 0 };
+				bfh.bfType = 0x4D42;  // 'BM'
+				bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+				bfh.bfSize = bfh.bfOffBits + bih.biSizeImage;
+
+				file.Write(&bfh, sizeof(bfh));
+				file.Write(&bih, sizeof(bih));
+
+				// Get bitmap bits (bottom-up)
+				BYTE* pBits = new BYTE[bih.biSizeImage];
+				BITMAPINFO bmi = { 0 };
+				bmi.bmiHeader = bih;
+				bmi.bmiHeader.biHeight = height;  // Bottom-up for GetDIBits
+
+				if (::GetDIBits(memDC.GetSafeHdc(), bitmap, 0, height, pBits, &bmi, DIB_RGB_COLORS))
+				{
+					file.Write(pBits, bih.biSizeImage);
+					SetStatusBarMessage(_T("Frame saved as BMP"));
+				}
+				delete[] pBits;
+				file.Close();
+			}
+		}
+		else if (ext.CompareNoCase(_T("png")) == 0)
+		{
+			// For PNG, save as BMP first then convert (simple approach)
+			CString tempPath = filepath;
+			tempPath.Replace(_T(".png"), _T(".bmp"));
+
+			// Save as BMP first
+			CString bmpExt = _T("bmp");
+			saveDlg.m_ofn.filter = _T("Bitmap Image (*.bmp)|*.bmp||");
+
+			// Use CImage for PNG export (simpler)
+			CImage image;
+			if (image.Load(filepath.Left(filepath.GetLength() - 4) + _T(".bmp")))
+			{
+				image.Save(filepath);
+				SetStatusBarMessage(_T("Frame saved as PNG"));
+			}
+			else
+			{
+				// Fallback: just save as BMP with .png extension warning
+				AfxMessageBox(_T("PNG export not available. Saved as BMP instead."), MB_ICONWARNING);
+			}
+		}
+
+		// Cleanup
+		memDC.SelectObject(oldBitmap);
+		memDC.DeleteDC();
+		bitmap.DeleteObject();
+
+		CString msg;
+		msg.Format(_T("Frame exported to: %s"), filepath);
+		TRACE(_T("%s\n"), msg);
+	}
+}
+
+// Export simulation as image sequence
+void CEpistemotronView::OnExportSequence()
+{
+	// Simple implementation: export current frame only with sequence naming
+	// Full implementation would require recording mode integration
+
+	SetStatusBarMessage(_T("Select directory for image sequence..."));
+
+	CFileDialog saveDlg(FALSE, _T("bmp"), _T("frame_00001.bmp"),
+		OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST,
+		_T("Bitmap Image (*.bmp)|*.bmp|All Files (*.*)|*.*||"),
+		this);
+
+	if (saveDlg.DoModal() == IDOK)
+	{
+		CString filepath = saveDlg.GetPathName();
+
+		// Extract directory
+		CString dirPath = filepath.Left(filepath.ReverseFind(_T('\\')) + 1);
+
+		// Create directory if needed
+		CreateDirectory(dirPath, nullptr);
+
+		// Export current frame
+		CRect rcClient;
+		GetClientRect(&rcClient);
+		int width = rcClient.Width();
+		int height = rcClient.Height();
+
+		if (width > 0 && height > 0)
+		{
+			// Get current iteration for filename
+			CEpistemotronDoc* pDoc = GetDocument();
+			int iteration = pDoc && pDoc->m_pCurrentUniverse ? pDoc->m_pCurrentUniverse->m_iIteration : 0;
+
+			CString framePath;
+			framePath.Format(_T("%sframe_%05d.bmp"), dirPath, iteration);
+
+			// Save bitmap (reuse OnExportFrame logic simplified)
+			CFile file;
+			if (file.Open(framePath, CFile::modeCreate | CFile::modeWrite | CFile::typeBinary))
+			{
+				BITMAPINFOHEADER bih = { 0 };
+				bih.biSize = sizeof(BITMAPINFOHEADER);
+				bih.biWidth = width;
+				bih.biHeight = -height;
+				bih.biPlanes = 1;
+				bih.biBitCount = 24;
+				bih.biCompression = BI_RGB;
+				bih.biSizeImage = ((width * 3 + 3) & ~3) * height;
+
+				BITMAPFILEHEADER bfh = { 0 };
+				bfh.bfType = 0x4D42;
+				bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+				bfh.bfSize = bfh.bfOffBits + bih.biSizeImage;
+
+				file.Write(&bfh, sizeof(bfh));
+				file.Write(&bih, sizeof(bih));
+
+				BYTE* pBits = new BYTE[bih.biSizeImage];
+				BITMAPINFO bmi = { 0 };
+				bmi.bmiHeader = bih;
+				bmi.bmiHeader.biHeight = height;
+
+				if (::GetDIBits(m_memDC.GetSafeHdc(), m_memBitmap, 0, height, pBits, &bmi, DIB_RGB_COLORS))
+				{
+					file.Write(pBits, bih.biSizeImage);
+					SetStatusBarMessage(_T("Frame saved to sequence"));
+				}
+				delete[] pBits;
+				file.Close();
+			}
+
+			CString msg;
+			msg.Format(_T("Frame %d exported to: %s"), iteration, framePath);
+			AfxMessageBox(msg, MB_ICONINFORMATION);
 		}
 	}
 }

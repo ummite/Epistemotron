@@ -48,6 +48,9 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Save State...", ID_STATE_SAVE
         MENUITEM "L&oad State...", ID_STATE_LOAD
+        MENUITEM SEPARATOR
+        MENUITEM "E&xport Current Frame...", ID_EXPORT_FRAME
+        MENUITEM "Export &Sequence...", ID_EXPORT_SEQUENCE
     END
 
     POPUP "&Scenario"

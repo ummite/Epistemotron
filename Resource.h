@@ -311,9 +311,15 @@
 #define ID_STATE_LOAD                   32790
 
 //------------------------------------------------------------------------------
-// PLACEHOLDER COMMANDS - RESERVED (32791-32799)
+// EXPORT COMMANDS (ID_EXPORT_*)
 //------------------------------------------------------------------------------
-// Commands 32791-32799 reserved for future use
+#define ID_EXPORT_FRAME                 32791   // Export current frame as image
+#define ID_EXPORT_SEQUENCE              32792   // Export simulation as image sequence
+
+//------------------------------------------------------------------------------
+// PLACEHOLDER COMMANDS - RESERVED (32793-32799)
+//------------------------------------------------------------------------------
+// Commands 32793-32799 reserved for future use
 
 //------------------------------------------------------------------------------
 // DIALOG CONTROL IDS (IDC_*)
