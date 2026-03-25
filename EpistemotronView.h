@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "Science/Universe.h"
+
 class CEpistemotronDoc;
 
 // Simulation states enum is now defined in framework.h (via pch.h)
@@ -43,6 +45,15 @@ public:
 // Operations
 public:
 	void RefreshView();  // Trigger a view redraw
+
+// Recording methods
+public:
+	void StartRecording(LPCTSTR path, LPCTSTR prefix);
+	void StopRecording();
+	BOOL IsRecording() const { return m_bRecording; }
+	CString GetRecordStatus() const;  // Returns formatted recording status string
+protected:
+	void SaveCurrentFrame();  // Save current frame to disk (called from OnDraw)
 
 // Overrides
 public:
@@ -95,12 +106,73 @@ protected:
 	// Trail visualization
 	BOOL m_bShowTrails;  // Toggle for showing/hiding orbit trails
 
+	// Collision control
+	BOOL m_bEnableCollisions;  // Toggle for collision detection
+	BOOL m_bPauseOnCollision;  // Pause simulation when collision occurs
+
+	// Help overlay
+	BOOL m_bShowHelp;    // Toggle for showing keyboard shortcuts help
+
+	// Energy statistics reference (for drift calculation)
+	double m_initialTotalEnergy;      // Total energy at simulation start (joules)
+	double m_initialLinearMomentum;   // Linear momentum magnitude at start (kg*m/s)
+	double m_initialAngularMomentum;  // Angular momentum magnitude at start (kg*m²/s)
+
+	// Collision statistics
+	int m_totalCollisions;         // Total collisions since simulation start
+	int m_collisionsThisFrame;     // Collisions that occurred in the last frame
+	UINT64 m_lastCollisionTime;    // Time of last collision (GetTickCount64)
+	double m_largestCollisionMass; // Mass of largest collision (kg)
+
+	// Visual collision feedback - flash effects
+	struct CollisionFlash
+	{
+		double x;           // X position in km
+		double y;           // Y position in km
+		double z;           // Z position in km
+		COLORREF color;     // Flash color
+		int remainingFrames; // How many frames left to display
+
+		CollisionFlash(double px, double py, double pz, COLORREF pcolor, int frames)
+			: x(px), y(py), z(pz), color(pcolor), remainingFrames(frames) {}
+	};
+	std::vector<CollisionFlash> m_collisionFlashes;
+
+	// Collision flash management
+	void AddCollisionFlash(double x, double y, double z, COLORREF color);
+	void UpdateCollisionFlashes();
+	void RenderCollisionFlashes(CDC* pDC, int centerX, int centerY, double cameraDistance, double fov, double panX, double panY);
+
+	// Celestial body selection
+	int m_selectedBodyIndex;      // Index of selected body (-1 if none selected)
+	CString m_selectedBodyInfo;   // Formatted info string for selected body
+
+	// Double buffering - pre-allocated to avoid per-frame allocation
+	CDC m_memDC;
+	CBitmap m_memBitmap;
+	CBitmap* m_pOldBitmap;
+	int m_memBitmapWidth;
+	int m_memBitmapHeight;
+	BOOL EnsureDoubleBuffer(CDC* pDC, int width, int height);
+
+	// Recording members - image sequence export
+	BOOL m_bRecording;           // TRUE if recording is active
+	CString m_recordPath;        // Output directory path
+	int m_recordFrameCount;      // Frame counter for sequential naming
+	CString m_recordPrefix;      // Prefix for output filenames
+
 	// Timer handler
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+
+	// FPS counter members
+	UINT64 m_lastFrameTime;      // Timestamp of last frame (ms)
+	int m_frameCount;            // Frame count for FPS calculation
+	double m_currentFps;         // Current frames per second
 
 	// Camera control handlers
 	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 	afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
+	afx_msg void OnChar(UINT nChar, UINT nRepCnt, UINT nFlags);
 
 	// Mouse handlers for panning
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
@@ -119,6 +191,10 @@ protected:
 
 	// Utility functions
 	CString FormatScientific(double value);
+	CString CalculateOrbitalPeriod(const Mass& body, const Universe& universe, int bodyIndex);
+
+	// Status bar helper
+	void SetStatusBarMessage(LPCTSTR message);
 
 	// Trail rendering
 	void RenderTrailForMasses(CDC* pDC, const Universe& universe,
@@ -150,6 +226,15 @@ protected:
 	afx_msg void OnScenarioThreeBody();
 	afx_msg void OnScenarioGalaxy();
 	afx_msg void OnScenarioNext();
+
+	// Recording command handlers
+	afx_msg void OnRecordingStart();
+	afx_msg void OnRecordingStop();
+
+	// Save/Load state command handlers
+	afx_msg void OnStateSave();
+	afx_msg void OnStateLoad();
+
 	DECLARE_MESSAGE_MAP()
 };
 

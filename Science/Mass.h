@@ -74,6 +74,24 @@ public:
     /// Maximum number of points to retain in orbit trail
     static constexpr int MAX_TRAIL_LENGTH = 500;
 
+    /// Average density for celestial bodies (kg/m^3)
+    /// Used to calculate realistic radius from mass: r = (3*m / (4*pi*rho))^(1/3)
+    /// Typical values: Sun ~1408 kg/m^3, Earth ~5515 kg/m^3, Jupiter ~1326 kg/m^3
+    static constexpr double DEFAULT_DENSITY_KG_M3 = 2000.0;  // Average for mixed bodies
+
+    // ============================================================================
+    // Collision Detection
+    // ============================================================================
+
+    /// Calculate the physical radius of this body based on its mass and density
+    /// @return Radius in kilometers
+    double GetPhysicalRadiusKM() const;
+
+    /// Check if this body is colliding with another body
+    /// @param other The other Mass object to check against
+    /// @return true if the bodies are touching or overlapping
+    bool IsCollidingWith(const Mass& other) const;
+
     // ============================================================================
     // Orbit Trail
     // ============================================================================

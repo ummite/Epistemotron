@@ -19,6 +19,9 @@ public:
 
 // Operations
 public:
+	/// Set status bar message
+	/// @param message Text to display on status bar
+	void SetStatusBarMessage(LPCTSTR message);
 
 // Overrides
 public:

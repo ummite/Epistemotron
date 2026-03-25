@@ -42,6 +42,12 @@ BEGIN
         MENUITEM "&Step", ID_SIMULATION_STEP
         MENUITEM SEPARATOR
         MENUITEM "&Configuration...", ID_SIMULATION_CONFIG
+        MENUITEM SEPARATOR
+        MENUITEM "S&tart Recording", ID_RECORDING_START
+        MENUITEM "&Stop Recording", ID_RECORDING_STOP
+        MENUITEM SEPARATOR
+        MENUITEM "&Save State...", ID_STATE_SAVE
+        MENUITEM "L&oad State...", ID_STATE_LOAD
     END
 
     POPUP "&Scenario"
@@ -75,7 +81,7 @@ BEGIN
         MENUITEM "&Tile Horizontal", ID_WINDOW_TILE_HORZ
         MENUITEM "&Tile Vertical", ID_WINDOW_TILE_VERT
         MENUITEM SEPARATOR
-        MENUITEM "&Close All", ID_CLOSE_ALL
+        MENUITEM "&Close All", ID_FILE_CLOSE
     END
 
     POPUP "&Help"
@@ -88,7 +94,7 @@ END
 // TOOLBAR BITMAPS
 //------------------------------------------------------------------------------
 // Standard toolbar bitmap (16x15 icons)
-IDR_MAINFRAME_256 BITMAP "res\Toolbar.bmp"
+IDR_MAINFRAME_256 BITMAP "res/Toolbar.bmp"
 
 //------------------------------------------------------------------------------
 // STRING TABLES
@@ -148,36 +154,41 @@ IDB_MENU_IMAGES_24 BITMAP "res\menuimages.bmp"
 IDB_PROPERTIES_HC BITMAP "res\properties_hc.bmp"
 
 //------------------------------------------------------------------------------
-// TOOLBARS for docking panes
+// TOOLBARS for docking panes - COMMENTED OUT FOR NOW
 //------------------------------------------------------------------------------
+/*
 IDR_EXPLORER TOOLBAR
 BEGIN
-    BUTTON ID_SORTING_GROUPBYTYPE
-    BUTTON ID_SORTING_SORTALPHABETIC
-    BUTTON ID_SORTING_SORTBYTYPE
-    BUTTON ID_SORTING_SORTBYACCESS
-    BUTTON ID_NEW_FOLDER
-    BUTTON ID_OPEN
-    BUTTON ID_OPEN_WITH
-    BUTTON ID_DUMMY_COMPILE
-    BUTTON ID_CLASS_ADD_MEMBER_FUNCTION
-    BUTTON ID_CLASS_ADD_MEMBER_VARIABLE
-    BUTTON ID_CLASS_DEFINITION
-    BUTTON ID_CLASS_PROPERTIES
-    BUTTON ID_PROPERTIES
-    BUTTON ID_SORT_MENU
-    BUTTON SEPARATOR
-    BUTTON ID_EXPAND_ALL
+    ICONS
+    BUTTON  ID_SORTING_GROUPBYTYPE
+    BUTTON  ID_SORTING_SORTALPHABETIC
+    BUTTON  ID_SORTING_SORTBYTYPE
+    BUTTON  ID_SORTING_SORTBYACCESS
+    BUTTON  ID_NEW_FOLDER
+    BUTTON  ID_OPEN
+    BUTTON  ID_OPEN_WITH
+    BUTTON  ID_DUMMY_COMPILE
+    BUTTON  ID_CLASS_ADD_MEMBER_FUNCTION
+    BUTTON  ID_CLASS_ADD_MEMBER_VARIABLE
+    BUTTON  ID_CLASS_DEFINITION
+    BUTTON  ID_CLASS_PROPERTIES
+    BUTTON  ID_PROPERTIES
+    BUTTON  ID_SORT_MENU
+    BUTTON  SEPARATOR
+    BUTTON  ID_EXPAND_ALL
 END
 
 IDR_SORT TOOLBAR
 BEGIN
-    BUTTON ID_SORTING_GROUPBYTYPE
-    BUTTON ID_SORTING_SORTALPHABETIC
-    BUTTON ID_SORTING_SORTBYTYPE
-    BUTTON ID_SORTING_SORTBYACCESS
+    ICONS
+    BUTTON  ID_SORTING_GROUPBYTYPE
+    BUTTON  ID_SORTING_SORTALPHABETIC
+    BUTTON  ID_SORTING_SORTBYTYPE
+    BUTTON  ID_SORTING_SORTBYACCESS
 END
+*/
 
+/* TOOLBAR definitions commented out for now
 IDR_MENU_IMAGES STANDARD_TOOLBAR
 BEGIN
     BUTTON ID_FILE_NEW
@@ -201,6 +212,7 @@ BEGIN
     BUTTON SEPARATOR
     BUTTON ID_SORTPROPERTIES
 END
+*/
 
 IDR_OUTPUT_POPUP MENU
 BEGIN
@@ -228,12 +240,12 @@ BEGIN
         MENUITEM "Type", ID_SORTING_SORTBYTYPE
         MENUITEM "&Access", ID_SORTING_SORTBYACCESS
     END
-    POPUP
+    POPUP "&Add"
     BEGIN
         MENUITEM "&Add Class...", ID_CLASS_ADD
         MENUITEM "&Add File...", ID_FILE_ADD
     END
-    POPUP
+    POPUP "&Options"
     BEGIN
         MENUITEM "&Properties...", ID_PROPERTIES
     END
@@ -282,6 +294,6 @@ BEGIN
 END
 
 //------------------------------------------------------------------------------
-// MANIFEST
+// MANIFEST - commented out (defined in vcxproj)
 //------------------------------------------------------------------------------
-1 RT_MANIFEST "res\app.manifest"
+// 1 RT_MANIFEST "W:/Programmation/Epistemotron/res/app.manifest"

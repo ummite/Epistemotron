@@ -1,4 +1,3 @@
-
 // MainFrm.cpp : implementation of the CMainFrame class
 //
 
@@ -92,9 +91,14 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	if (!m_wndToolBar.LoadToolBar(IDR_MAINFRAME_256))
 	{
-		TRACE0("Failed to load toolbar\n");
+		TRACE0("Failed to load toolbar - using fallback\n");
+		// Try loading with different style if 256 fails
 		m_wndToolBar.DestroyWindow();
-		return -1;      // fail to create
+		if (!m_wndToolBar.CreateEx(this, TBSTYLE_FLAT, WS_CHILD | WS_VISIBLE | CBRS_TOP | CBRS_TOOLTIPS | CBRS_FLYBY))
+		{
+			TRACE0("Failed to create fallback toolbar\n");
+			return -1;
+		}
 	}
 
 	CString strToolBarName;
@@ -164,8 +168,8 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// set the visual manager and style based on persisted value
 	OnApplicationLook(theApp.m_nAppLook);
 
-	// Enable enhanced windows management dialog
-	EnableWindowsDialog(ID_WINDOW_MANAGER, ID_WINDOW_MANAGER, TRUE);
+	// Enable enhanced windows management dialog - COMMENTED OUT FOR NOW
+	// EnableWindowsDialog(ID_WINDOW_MANAGER, ID_WINDOW_MANAGER, TRUE);
 
 	// Enable toolbar and docking window menu replacement
 	EnablePaneMenu(TRUE, ID_VIEW_CUSTOMIZE, strCustomize, ID_VIEW_TOOLBAR);
@@ -330,6 +334,15 @@ void CMainFrame::SetDockingWindowIcons(BOOL bHiColorIcons)
 	m_wndProperties.SetIcon(hPropertiesBarIcon, TRUE);
 
 	UpdateMDITabbedBarsIcons();
+}
+
+// Set status bar message
+void CMainFrame::SetStatusBarMessage(LPCTSTR message)
+{
+	if (message != nullptr)
+	{
+		m_wndStatusBar.SetPaneText(0, message);
+	}
 }
 
 // CMainFrame diagnostics

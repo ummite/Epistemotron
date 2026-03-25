@@ -2,6 +2,7 @@
 //
 
 #include "pch.h"
+#include "MainFrm.h"  // For CMainFrame forward reference
 
 // ============================================================================
 // Named Constants (eliminating magic numbers)
@@ -25,6 +26,7 @@ constexpr int MIN_BODY_RADIUS = 2;                       // Minimum pixel radius
 constexpr int MAX_BODY_RADIUS = 50;                      // Maximum pixel radius
 constexpr int MAX_TRAIL_POINTS = 1000;                   // Max points per trail
 constexpr double ZOOM_FACTOR = 1.1;                      // Zoom per wheel tick
+constexpr int SELECTION_RING_WIDTH = 3;                  // Selection ring width in pixels
 
 // Camera rotation
 constexpr double PI = 3.14159265358979323846;            // Pi constant
@@ -58,6 +60,7 @@ constexpr COLORREF COLOR_ASTEROID = RGB(200, 200, 200);   // Moon/asteroid color
 constexpr COLORREF COLOR_STAR_TRAIL = RGB(200, 200, 150); // Star trail color
 constexpr COLORREF COLOR_PLANET_TRAIL = RGB(50, 100, 200);// Planet trail color
 constexpr COLORREF COLOR_ASTEROID_TRAIL = RGB(100, 100, 100); // Asteroid trail color
+constexpr COLORREF COLOR_SELECTION_RING = RGB(255, 255, 0); // Selection ring (yellow)
 constexpr COLORREF COLOR_INVALID = (COLORREF)-1;              // Invalid color sentinel
 
 #ifndef SHARED_HANDLERS
@@ -110,6 +113,14 @@ BEGIN_MESSAGE_MAP(CEpistemotronView, CView)
 	ON_COMMAND(ID_SCENARIO_THREE_BODY, &CEpistemotronView::OnScenarioThreeBody)
 	ON_COMMAND(ID_SCENARIO_GALAXY, &CEpistemotronView::OnScenarioGalaxy)
 	ON_COMMAND(ID_SCENARIO_NEXT, &CEpistemotronView::OnScenarioNext)
+	// Recording commands
+	ON_COMMAND(ID_RECORDING_START, &CEpistemotronView::OnRecordingStart)
+	ON_COMMAND(ID_RECORDING_STOP, &CEpistemotronView::OnRecordingStop)
+	// Save/Load state commands
+	ON_COMMAND(ID_STATE_SAVE, &CEpistemotronView::OnStateSave)
+	ON_COMMAND(ID_STATE_LOAD, &CEpistemotronView::OnStateLoad)
+	// Character input handler
+	ON_WM_CHAR()
 END_MESSAGE_MAP()
 
 // CEpistemotronView construction/destruction
@@ -131,19 +142,223 @@ CEpistemotronView::CEpistemotronView() noexcept
 	, m_bRotating(FALSE)
 	, m_bRolling(FALSE)
 	, m_bShowTrails(TRUE)
+	, m_bEnableCollisions(TRUE)
+	, m_bPauseOnCollision(FALSE)
+	, m_bShowHelp(FALSE)
 	, m_integratorType(IntegratorType::SymplecticEuler)
+	, m_lastFrameTime(0)
+	, m_frameCount(0)
+	, m_currentFps(0.0)
 	, m_currentScenario(ScenarioType::SolarSystem)
+	, m_pOldBitmap(nullptr)
+	, m_memBitmapWidth(0)
+	, m_memBitmapHeight(0)
+	, m_selectedBodyIndex(-1)
+	, m_initialTotalEnergy(0.0)
+	, m_initialLinearMomentum(0.0)
+	, m_initialAngularMomentum(0.0)
+	, m_totalCollisions(0)
+	, m_collisionsThisFrame(0)
+	, m_lastCollisionTime(0)
+	, m_largestCollisionMass(0.0)
+	, m_bRecording(FALSE)
+	, m_collisionFlashes()
+	, m_recordFrameCount(0)
 {
 }
 
 CEpistemotronView::~CEpistemotronView()
 {
+	// Stop recording if active
+	if (m_bRecording)
+	{
+		TRACE(_T("Stopping recording on destroy: %d frames saved\n"), m_recordFrameCount);
+		m_bRecording = FALSE;
+	}
+
 	StopSimulation();  // Ensure timer is stopped
+
+	// Clean up double buffer resources
+	if (m_memBitmap.m_hObject != nullptr)
+	{
+		m_memBitmap.DeleteObject();
+	}
+	if (m_memDC.m_hDC != nullptr)
+	{
+		m_memDC.DeleteDC();
+	}
 }
 
 BOOL CEpistemotronView::PreCreateWindow(CREATESTRUCT& cs)
 {
 	return CView::PreCreateWindow(cs);
+}
+
+// ============================================================================
+// Collision Flash Methods
+// ============================================================================
+
+// Add a collision flash at the specified position
+void CEpistemotronView::AddCollisionFlash(double x, double y, double z, COLORREF color)
+{
+	m_collisionFlashes.emplace_back(x, y, z, color, 3);  // Flash for 3 frames
+}
+
+// Update collision flashes (decrement remaining frames, remove expired)
+void CEpistemotronView::UpdateCollisionFlashes()
+{
+	for (auto it = m_collisionFlashes.begin(); it != m_collisionFlashes.end(); )
+	{
+		if (--(it->remainingFrames) <= 0)
+		{
+			it = m_collisionFlashes.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+}
+
+// Render collision flashes with 3D projection
+void CEpistemotronView::RenderCollisionFlashes(CDC* pDC, int centerX, int centerY,
+	double cameraDistance, double fov, double panX, double panY)
+{
+	if (m_collisionFlashes.empty())
+		return;
+
+	// Pre-compute trigonometric values for camera rotation
+	const double cosYaw = cos(m_rotationYaw);
+	const double sinYaw = sin(m_rotationYaw);
+	const double cosPitch = cos(m_rotationPitch);
+	const double sinPitch = sin(m_rotationPitch);
+	const double cosRoll = cos(m_rotationRoll);
+	const double sinRoll = sin(m_rotationRoll);
+
+	// Create a brush for flash rendering
+	CBrush flashBrush;
+	CPen flashPen(PS_SOLID, 2, RGB(255, 255, 255));  // White outline
+
+	for (const auto& flash : m_collisionFlashes)
+	{
+		// Apply camera rotation
+		double rotatedX = flash.x;
+		double rotatedY = flash.y;
+		double rotatedZ = flash.z;
+
+		// Yaw rotation (around Y-axis)
+		double tempX = rotatedX * cosYaw - rotatedZ * sinYaw;
+		double tempZ = rotatedX * sinYaw + rotatedZ * cosYaw;
+		rotatedX = tempX;
+		rotatedZ = tempZ;
+
+		// Pitch rotation (around X-axis)
+		double tempY = rotatedY * cosPitch - rotatedZ * sinPitch;
+		rotatedZ = rotatedY * sinPitch + rotatedZ * cosPitch;
+		rotatedY = tempY;
+
+		// Roll rotation (around Z-axis)
+		tempX = rotatedX * cosRoll - rotatedY * sinRoll;
+		rotatedY = rotatedX * sinRoll + rotatedY * cosRoll;
+		rotatedX = tempX;
+		rotatedY = tempY;
+
+		// Skip if behind camera
+		if (rotatedZ >= cameraDistance - CAMERA_Z_BUFFER)
+			continue;
+
+		// Perspective projection
+		double scale = fov / (cameraDistance - rotatedZ);
+
+		// Apply pan offset
+		int screenX = centerX + (int)(rotatedX * scale) + (int)panX;
+		int screenY = centerY - (int)(rotatedY * scale) - (int)panY;
+
+		// Flash size based on remaining frames (shrinks as it fades)
+		int flashRadius = 15 * flash.remainingFrames;
+
+		// Create flash rect (circle)
+		CRect flashRect(
+			screenX - flashRadius,
+			screenY - flashRadius,
+			screenX + flashRadius,
+			screenY + flashRadius
+		);
+
+		// Create colored brush
+		if (!flashBrush.CreateSolidBrush(flash.color))
+			continue;
+
+		CPen* oldPen = pDC->SelectObject(&flashPen);
+		CBrush* oldBrush = pDC->SelectObject(&flashBrush);
+
+		// Draw flash circle
+		pDC->Ellipse(&flashRect);
+
+		// Restore GDI objects
+		pDC->SelectObject(oldBrush);
+		pDC->SelectObject(oldPen);
+
+		flashBrush.DeleteObject();
+	}
+
+	flashPen.DeleteObject();
+}
+
+// ============================================================================
+// Double Buffering
+// ============================================================================
+
+// Double buffering helper - reuses pre-allocated DC/bitmap
+BOOL CEpistemotronView::EnsureDoubleBuffer(CDC* pDC, int width, int height)
+{
+	// Check if we need to create or resize the buffer
+	BOOL needResize = (m_memBitmapWidth != width || m_memBitmapHeight != height);
+
+	if (needResize)
+	{
+		// Clean up existing resources
+		if (m_pOldBitmap != nullptr)
+		{
+			m_memDC.SelectObject(m_pOldBitmap);
+			m_pOldBitmap = nullptr;
+		}
+		if (m_memBitmap.m_hObject != nullptr)
+		{
+			m_memBitmap.DeleteObject();
+		}
+		if (m_memDC.m_hDC != nullptr)
+		{
+			m_memDC.DeleteDC();
+		}
+
+		// Create new DC and bitmap
+		if (!m_memDC.CreateCompatibleDC(pDC))
+		{
+			TRACE(_T("Failed to create compatible DC for double buffering\n"));
+			return FALSE;
+		}
+
+		if (!m_memBitmap.CreateCompatibleBitmap(pDC, width, height))
+		{
+			TRACE(_T("Failed to create compatible bitmap for double buffering\n"));
+			m_memDC.DeleteDC();
+			return FALSE;
+		}
+
+		m_memBitmapWidth = width;
+		m_memBitmapHeight = height;
+	}
+
+	// Select bitmap into DC
+	m_pOldBitmap = m_memDC.SelectObject(&m_memBitmap);
+	if (m_pOldBitmap == nullptr)
+	{
+		TRACE(_T("Failed to select bitmap into DC\n"));
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 // CEpistemotronView drawing
@@ -153,6 +368,24 @@ void CEpistemotronView::OnDraw(CDC* pDC)
 	// Validate DC parameter
 	if (pDC == nullptr)
 		return;
+
+	// FPS calculation
+	UINT64 currentTime = GetTickCount64();
+	m_frameCount++;
+	if (m_lastFrameTime > 0)
+	{
+		UINT64 elapsed = currentTime - m_lastFrameTime;
+		if (elapsed >= 1000)  // Calculate FPS every second
+		{
+			m_currentFps = static_cast<double>(m_frameCount) * 1000.0 / static_cast<double>(elapsed);
+			m_frameCount = 0;
+			m_lastFrameTime = currentTime;
+		}
+	}
+	else
+	{
+		m_lastFrameTime = currentTime;
+	}
 
 	CEpistemotronDoc* pDoc = GetDocument();
 	if (!pDoc)
@@ -167,60 +400,50 @@ void CEpistemotronView::OnDraw(CDC* pDC)
 	if (width <= 0 || height <= 0)
 		return;
 
-	// Double buffering to prevent flickering
-	CDC memDC;
-	CBitmap memBitmap;
-	CBitmap* pOldBitmap = nullptr;
-
-	if (!memDC.CreateCompatibleDC(pDC))
+	// Double buffering to prevent flickering (reuses pre-allocated DC/bitmap)
+	if (!EnsureDoubleBuffer(pDC, width, height))
 	{
-		TRACE(_T("Failed to create compatible DC for double buffering\n"));
-		return;
-	}
-
-	if (!memBitmap.CreateCompatibleBitmap(pDC, width, height))
-	{
-		TRACE(_T("Failed to create compatible bitmap for double buffering\n"));
-		memDC.DeleteDC();
-		return;
-	}
-
-	pOldBitmap = memDC.SelectObject(&memBitmap);
-	if (pOldBitmap == nullptr)
-	{
-		TRACE(_T("Failed to select bitmap into DC\n"));
-		memBitmap.DeleteObject();
-		memDC.DeleteDC();
-		return;
+		return;  // Error already traced in EnsureDoubleBuffer
 	}
 
 	// Draw background (space - dark blue/black)
-	memDC.FillSolidRect(&rcClient, COLOR_SPACE_BG);
+	m_memDC.FillSolidRect(&rcClient, COLOR_SPACE_BG);
 
 	// Get the current universe from the document
 	Universe* pUniverse = pDoc->m_pCurrentUniverse;
 	if (!pUniverse)
 	{
-		memDC.SetTextAlign(TA_CENTER);
+		m_memDC.SetTextAlign(TA_CENTER);
 		CString strText = _T("No simulation active.\nPress F5 or use Simulation menu to start.");
-		memDC.TextOut(rcClient.CenterPoint().x, rcClient.CenterPoint().y, strText);
+		m_memDC.TextOut(rcClient.CenterPoint().x, rcClient.CenterPoint().y, strText);
 	}
 	else
 	{
+		// Update collision flash effects
+		UpdateCollisionFlashes();
+
 		// Draw 3D projection of the universe
-		RenderUniverse3D(&memDC, *pUniverse, rcClient);
+		RenderUniverse3D(&m_memDC, *pUniverse, rcClient);
 
 		// Draw UI overlay
-		DrawUIOverlay(&memDC, rcClient);
+		DrawUIOverlay(&m_memDC, rcClient);
 	}
 
 	// Blit to screen
-	pDC->BitBlt(0, 0, width, height, &memDC, 0, 0, SRCCOPY);
+	pDC->BitBlt(0, 0, width, height, &m_memDC, 0, 0, SRCCOPY);
 
-	// Cleanup (restore original bitmap and release resources)
-	memDC.SelectObject(pOldBitmap);
-	memBitmap.DeleteObject();
-	memDC.DeleteDC();
+	// Save current frame if recording
+	if (m_bRecording)
+	{
+		SaveCurrentFrame();
+	}
+
+	// Restore original bitmap (don't delete - reuse next frame)
+	if (m_pOldBitmap != nullptr)
+	{
+		m_memDC.SelectObject(m_pOldBitmap);
+		m_pOldBitmap = nullptr;
+	}
 }
 
 void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, const CRect& rcClient)
@@ -250,6 +473,7 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 		int screenX;
 		int screenY;
 		int radius;
+		int index;        // Index in universe for selection
 		double depth;
 		COLORREF color;
 	};
@@ -258,6 +482,14 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 	int massCount = universe.GetMassCount();
 	if (massCount <= 0)
 		return;
+
+	// Pre-compute trigonometric values for camera rotation (outside loop)
+	const double cosYaw = cos(m_rotationYaw);
+	const double sinYaw = sin(m_rotationYaw);
+	const double cosPitch = cos(m_rotationPitch);
+	const double sinPitch = sin(m_rotationPitch);
+	const double cosRoll = cos(m_rotationRoll);
+	const double sinRoll = sin(m_rotationRoll);
 
 	// Pre-allocate vector to avoid reallocations
 	masses.reserve(static_cast<size_t>(massCount));
@@ -271,23 +503,17 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 		double rotatedZ = m.m_Z;
 
 		// Apply yaw rotation (around Y-axis)
-		double cosYaw = cos(m_rotationYaw);
-		double sinYaw = sin(m_rotationYaw);
 		double tempX = rotatedX * cosYaw - rotatedZ * sinYaw;
 		double tempZ = rotatedX * sinYaw + rotatedZ * cosYaw;
 		rotatedX = tempX;
 		rotatedZ = tempZ;
 
 		// Apply pitch rotation (around X-axis)
-		double cosPitch = cos(m_rotationPitch);
-		double sinPitch = sin(m_rotationPitch);
 		double tempY = rotatedY * cosPitch - rotatedZ * sinPitch;
 		rotatedZ = rotatedY * sinPitch + rotatedZ * cosPitch;
 		rotatedY = tempY;
 
 		// Apply roll rotation (around Z-axis)
-		double cosRoll = cos(m_rotationRoll);
-		double sinRoll = sin(m_rotationRoll);
 		tempX = rotatedX * cosRoll - rotatedY * sinRoll;
 		tempY = rotatedX * sinRoll + rotatedY * cosRoll;
 		rotatedX = tempX;
@@ -326,6 +552,7 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 		info.screenX = screenX;
 		info.screenY = screenY;
 		info.radius = radius;
+		info.index = i;
 		info.depth = rotatedZ;
 		info.color = color;
 		masses.push_back(info);
@@ -385,6 +612,27 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 
 		// Restore previous brush
 		pDC->SelectObject(oldBrush);
+
+		// Draw selection ring for selected body
+		if (info.index == m_selectedBodyIndex)
+		{
+			CRect selectionRing(
+				info.screenX - info.radius - SELECTION_RING_WIDTH,
+				info.screenY - info.radius - SELECTION_RING_WIDTH,
+				info.screenX + info.radius + SELECTION_RING_WIDTH,
+				info.screenY + info.radius + SELECTION_RING_WIDTH
+			);
+			CPen selectionPen(PS_SOLID, SELECTION_RING_WIDTH, COLOR_SELECTION_RING);
+			CPen* oldSelPen = pDC->SelectObject(&selectionPen);
+			CBrush nullBrush;
+			nullBrush.CreateSolidBrush(RGB(0, 0, 0));
+			CBrush* oldSelBrush = pDC->SelectObject(&nullBrush);
+			pDC->Ellipse(&selectionRing);
+			pDC->SelectObject(oldSelBrush);
+			nullBrush.DeleteObject();
+			pDC->SelectObject(oldSelPen);
+			selectionPen.DeleteObject();
+		}
 	}
 
 	// Restore previous pen and cleanup
@@ -394,6 +642,9 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 	{
 		fillBrush.DeleteObject();
 	}
+
+	// Render collision flash effects (on top of everything)
+	RenderCollisionFlashes(pDC, centerX, centerY, cameraDistance, fov, m_panOffsetX, m_panOffsetY);
 }
 
 // Render orbit trails for all masses
@@ -540,6 +791,12 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 		break;
 	}
 
+	// Draw FPS
+	statusText += _T("\nFPS: ");
+	CString fpsStr;
+	fpsStr.Format(_T("%.1f"), m_currentFps);
+	statusText += fpsStr;
+
 	// Draw simulation stats
 	statusText += _T("\nIteration: ");
 	CString temp;
@@ -549,6 +806,29 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	statusText += _T("\nBodies: ");
 	temp.Format(_T("%d"), pUniverse->GetMassCount());
 	statusText += temp;
+
+	statusText += _T("\nCollisions: ");
+	temp.Format(_T("%d"), pUniverse->GetTotalCollisions());
+	statusText += temp;
+
+	// Show collision status
+	statusText += _T(" [");
+	statusText += m_bEnableCollisions ? _T("ON") : _T("OFF");
+	statusText += _T("]");
+
+	// Show time since last collision
+	if (m_lastCollisionTime > 0 && m_bEnableCollisions)
+	{
+		UINT64 secondsSince = (GetTickCount64() - m_lastCollisionTime) / 1000;
+		if (secondsSince < 60)
+		{
+			statusText += _T(" (");
+			CString lastStr;
+			lastStr.Format(_T("%llum ago"), secondsSince);
+			statusText += lastStr;
+			statusText += _T(")");
+		}
+	}
 
 	statusText += _T("\nStep: ");
 	temp.Format(_T("%d sec"), m_stepSizeSec);
@@ -564,10 +844,27 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	double potentialEnergy = pUniverse->GetTotalPotentialEnergy();
 
 	statusText += _T("\n---");
-	statusText += _T("\nEnergy Conservation:");
-	statusText += _T("\n  Total: ") + FormatScientific(totalEnergy) + _T(" J");
-	statusText += _T("\n  Kinetic: ") + FormatScientific(kineticEnergy) + _T(" J");
+	statusText += _T("\nEnergy:");
+	statusText += _T("\n  Kinetic:   ") + FormatScientific(kineticEnergy) + _T(" J");
 	statusText += _T("\n  Potential: ") + FormatScientific(potentialEnergy) + _T(" J");
+	statusText += _T("\n  Total:     ") + FormatScientific(totalEnergy) + _T(" J");
+
+	// Calculate and display drift percentage
+	double driftPercent = 0.0;
+	if (m_initialTotalEnergy != 0.0)
+	{
+		driftPercent = (totalEnergy - m_initialTotalEnergy) / std::fabs(m_initialTotalEnergy) * 100.0;
+	}
+	CString driftStr;
+	if (driftPercent >= 0)
+	{
+		driftStr.Format(_T("+%.4f%%"), driftPercent);
+	}
+	else
+	{
+		driftStr.Format(_T("%.4f%%"), driftPercent);
+	}
+	statusText += _T("\n  Drift:     ") + driftStr;
 
 	// Draw momentum conservation statistics
 	double linearMom = pUniverse->GetTotalLinearMomentumMagnitude();
@@ -577,6 +874,23 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	statusText += _T("\nMomentum Conservation:");
 	statusText += _T("\n  Linear: ") + FormatScientific(linearMom) + _T(" kg*m/s");
 	statusText += _T("\n  Angular: ") + FormatScientific(angularMom) + _T(" kg*m²/s");
+
+	// Calculate and display momentum drift percentages
+	if (m_initialLinearMomentum != 0.0)
+	{
+		double linearDrift = (linearMom - m_initialLinearMomentum) / std::fabs(m_initialLinearMomentum) * 100.0;
+		CString linearDriftStr;
+		linearDriftStr.Format(_T("%+.4f%%"), linearDrift);
+		statusText += _T("\n  Linear Drift: ") + linearDriftStr;
+	}
+
+	if (m_initialAngularMomentum != 0.0)
+	{
+		double angularDrift = (angularMom - m_initialAngularMomentum) / std::fabs(m_initialAngularMomentum) * 100.0;
+		CString angularDriftStr;
+		angularDriftStr.Format(_T("%+.4f%%"), angularDrift);
+		statusText += _T("\n  Angular Drift: ") + angularDriftStr;
+	}
 
 	// Draw camera stats
 	statusText += _T("\n---");
@@ -605,6 +919,17 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	statusText += _T("\n---");
 	statusText += _T("\nTrails: ") + CString(m_bShowTrails ? _T("ON") : _T("OFF"));
 
+	// Draw recording status
+	statusText += _T("\n---");
+	statusText += GetRecordStatus();
+
+	// Draw selected body info
+	if (m_selectedBodyIndex >= 0)
+	{
+		statusText += _T("\n---");
+		statusText += m_selectedBodyInfo;
+	}
+
 	// Draw controls help
 	statusText += _T("\n---");
 	statusText += _T("\nControls:");
@@ -613,15 +938,87 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	statusText += _T("\n  Left drag: Pan");
 	statusText += _T("\n  Right drag: Rotate");
 	statusText += _T("\n  Middle drag: Roll");
-	statusText += _T("\n  I key: Toggle integrator");
-	statusText += _T("\n  T key: Toggle trails");
-	statusText += _T("\n  R key: Reset rotation");
+	statusText += _T("\n  Space: Pause/Resume");
+	statusText += _T("\n  S: Reset simulation");
+	statusText += _T("\n  I: Toggle integrator");
+	statusText += _T("\n  T: Toggle trails");
+	statusText += _T("\n  N: Next scenario");
+	statusText += _T("\n  R: Reset rotation");
+	statusText += _T("\n  E: Toggle recording");
+	statusText += _T("\n  1-4: Scenario select");
 	statusText += _T("\n  ESC: Reset camera");
+	statusText += _T("\n  F1/? : This help");
+	statusText += _T("\n  Left click: Select body");
+	statusText += _T("\n  Ctrl+click: Deselect");
 
 	// Draw text in top-left corner
 	pDC->SetTextColor(COLOR_TEXT);
 	pDC->SetBkMode(TRANSPARENT);
 	pDC->TextOut(10, 10, statusText);
+
+	// Draw expanded help overlay if enabled
+	if (m_bShowHelp)
+	{
+		const int helpX = rcClient.left + 10;
+		const int helpY = rcClient.top + 400;  // Below the main status
+		const int helpWidth = 400;
+		const int helpHeight = 300;
+
+		// Draw semi-transparent background
+		CRect helpRect(helpX, helpY, helpX + helpWidth, helpY + helpHeight);
+		CBrush brush(RGB(0, 0, 0));
+		CPen pen(PS_SOLID, 2, RGB(255, 255, 255));
+		CPen* pOldPen = pDC->SelectObject(&pen);
+		pDC->FillRect(helpRect, &brush);
+		pDC->Rectangle(helpRect);
+		pDC->SelectObject(pOldPen);
+
+		// Draw help content
+		CString helpText;
+		helpText += _T("Keyboard Shortcuts");
+		helpText += _T("\n==================");
+		helpText += _T("\n\nSimulation Control:");
+		helpText += _T("\n  F5       Start");
+		helpText += _T("\n  F6       Pause");
+		helpText += _T("\n  F7       Resume");
+		helpText += _T("\n  F8       Stop");
+		helpText += _T("\n  F9       Reset");
+		helpText += _T("\n  F10      Step");
+		helpText += _T("\n  Space    Pause/Resume");
+		helpText += _T("\n  +/-      Speed up/down");
+		helpText += _T("\n\nScenarios:");
+		helpText += _T("\n  1        Solar System");
+		helpText += _T("\n  2        Binary Star");
+		helpText += _T("\n  3        Three Body");
+		helpText += _T("\n  4        Galaxy");
+		helpText += _T("\n  N        Next scenario");
+		helpText += _T("\n\nCamera:");
+		helpText += _T("\n  Wheel    Zoom in/out");
+		helpText += _T("\n  +/-      Zoom in/out");
+		helpText += _T("\n  L-Drag   Pan");
+		helpText += _T("\n  R-Drag   Rotate");
+		helpText += _T("\n  M-Drag   Roll");
+		helpText += _T("\n  R        Reset rotation");
+		helpText += _T("\n  ESC      Reset camera");
+		helpText += _T("\n\nDisplay:");
+		helpText += _T("\n  I        Toggle integrator");
+		helpText += _T("\n  T        Toggle trails");
+		helpText += _T("\n  F1/?     This help");
+		helpText += _T("\n\nCollision Control:");
+		helpText += _T("\n  C        Toggle collision detection");
+		helpText += _T("\n  P        Pause on collision");
+		helpText += _T("\n  V        Clear collision flashes");
+		helpText += _T("\n\nSelection:");
+		helpText += _T("\n  L-Click  Select body");
+		helpText += _T("\n  Ctrl+Click Deselect");
+		helpText += _T("\n\nRecording:");
+		helpText += _T("\n  E        Toggle recording");
+		helpText += _T("\n\nState:");
+		helpText += _T("\n  Menu     Save/Load State");
+
+		pDC->SetTextColor(RGB(255, 255, 255));
+		pDC->TextOut(helpX + 10, helpY + 10, helpText);
+	}
 }
 
 // Helper function to format large/small numbers in scientific notation
@@ -632,6 +1029,125 @@ CString CEpistemotronView::FormatScientific(double value)
 		result.Format(_T("%.3e"), value);
 	else
 		result.Format(_T("-%.3e"), -value);
+	return result;
+}
+
+// Calculate orbital period for a selected body using Kepler's third law
+// For N-body systems, finds the most massive body and treats it as the primary
+// Set status bar message via main frame
+void CEpistemotronView::SetStatusBarMessage(LPCTSTR message)
+{
+	CFrameWnd* pFrame = GetParentFrame();
+	if (pFrame != nullptr)
+	{
+		CMainFrame* pMainFrame = dynamic_cast<CMainFrame*>(pFrame);
+		if (pMainFrame != nullptr)
+		{
+			pMainFrame->SetStatusBarMessage(message);
+		}
+	}
+}
+
+// Calculate orbital period for a selected body using Kepler's third law
+CString CEpistemotronView::CalculateOrbitalPeriod(const Mass& body, const Universe& universe, int bodyIndex)
+{
+	constexpr double G = 6.67e-11;  // Gravitational constant (N*m²/kg²)
+	constexpr double KM_TO_M = 1000.0;
+
+	CString result;
+
+	int massCount = universe.GetMassCount();
+	if (massCount < 2)
+	{
+		return _T("N/A (need 2+ bodies)");
+	}
+
+	// Find the most massive body that's not the selected one
+	int primaryIndex = -1;
+	double maxMass = 0.0;
+
+	for (int i = 0; i < massCount; i++)
+	{
+		if (i == bodyIndex) continue;
+		const Mass& other = universe.GetAt(i);
+		if (other.m_MasseKG > maxMass)
+		{
+			maxMass = other.m_MasseKG;
+			primaryIndex = i;
+		}
+	}
+
+	if (primaryIndex < 0)
+	{
+		return _T("N/A (no primary found)");
+	}
+
+	const Mass& primary = universe.GetAt(primaryIndex);
+
+	// Calculate distance between bodies (convert km to m)
+	double dx = (primary.m_X - body.m_X) * KM_TO_M;
+	double dy = (primary.m_Y - body.m_Y) * KM_TO_M;
+	double dz = (primary.m_Z - body.m_Z) * KM_TO_M;
+	double distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+	// Calculate relative velocity (m/s)
+	double dvx = body.m_VitesseX - primary.m_VitesseX;
+	double dvy = body.m_VitesseY - primary.m_VitesseY;
+	double dvz = body.m_VitesseZ - primary.m_VitesseZ;
+	double relativeVel = sqrt(dvx * dvx + dvy * dvy + dvz * dvz);
+
+	// Total mass of the system
+	double totalMass = body.m_MasseKG + primary.m_MasseKG;
+
+	// Semi-major axis from vis-viva equation: v² = GM(2/r - 1/a)
+	// Rearranged: a = 1 / (2/r - v²/GM)
+	double mu = G * totalMass;  // Standard gravitational parameter
+	double vSquared = relativeVel * relativeVel;
+	double r = distance;
+
+	if (r <= 0)
+	{
+		return _T("N/A (zero distance)");
+	}
+
+	double invASemiMajor = 2.0 / r - vSquared / mu;
+	if (std::fabs(invASemiMajor) < 1e-20)
+	{
+		return _T("Parabolic (escape trajectory)");
+	}
+
+	double semiMajorAxis = 1.0 / invASemiMajor;
+
+	if (semiMajorAxis < 0)
+	{
+		return _T("Hyperbolic (escape trajectory)");
+	}
+
+	// Orbital period from Kepler's third law: T = 2π * sqrt(a³ / GM)
+	double periodSeconds = 2.0 * 3.14159265358979 * sqrt(semiMajorAxis * semiMajorAxis * semiMajorAxis / mu);
+
+	// Format the result in appropriate units
+	if (periodSeconds < 60.0)
+	{
+		result.Format(_T("%.1f seconds"), periodSeconds);
+	}
+	else if (periodSeconds < 3600.0)
+	{
+		result.Format(_T("%.1f minutes"), periodSeconds / 60.0);
+	}
+	else if (periodSeconds < 86400.0)
+	{
+		result.Format(_T("%.2f hours"), periodSeconds / 3600.0);
+	}
+	else if (periodSeconds < 31536000.0)
+	{
+		result.Format(_T("%.2f days"), periodSeconds / 86400.0);
+	}
+	else
+	{
+		result.Format(_T("%.2f years"), periodSeconds / 31536000.0);
+	}
+
 	return result;
 }
 
@@ -718,6 +1234,18 @@ void CEpistemotronView::ResetSimulation()
 	pDoc->m_pCurrentUniverse = new Universe(1);  // Temporary, will be resized by LoadScenario
 	pDoc->m_pCurrentUniverse->LoadScenario(m_currentScenario);
 	pDoc->m_pCurrentUniverse->m_iIteration = 0;
+
+	// Initialize reference energy and momentum for drift calculation
+	m_initialTotalEnergy = pDoc->m_pCurrentUniverse->GetTotalEnergy();
+	m_initialLinearMomentum = pDoc->m_pCurrentUniverse->GetTotalLinearMomentumMagnitude();
+	m_initialAngularMomentum = pDoc->m_pCurrentUniverse->GetTotalAngularMomentumMagnitude();
+
+	// Reset collision statistics
+	m_totalCollisions = 0;
+	m_collisionsThisFrame = 0;
+	m_lastCollisionTime = 0;
+	m_largestCollisionMass = 0.0;
+	m_collisionFlashes.clear();
 
 	m_stepsPerFrame = 1;
 	// Set step size based on scenario
@@ -808,6 +1336,36 @@ void CEpistemotronView::OnTimer(UINT_PTR nIDEvent)
 			pNextUniverse = pDoc->m_pCurrentUniverse->GenerateSimulationStep(m_stepSizeSec);
 		}
 
+		// Set collision toggle from view
+		pNextUniverse->m_bEnableCollisions = m_bEnableCollisions;
+
+		// Consume collision events and add visual flashes
+		auto collisionEvents = pNextUniverse->ConsumeLastCollisions();
+		if (!collisionEvents.empty())
+		{
+			m_collisionsThisFrame = static_cast<int>(collisionEvents.size());
+			m_lastCollisionTime = GetTickCount64();
+
+			// Track largest collision mass
+			if (pNextUniverse->GetLargestCollisionMass() > m_largestCollisionMass)
+			{
+				m_largestCollisionMass = pNextUniverse->GetLargestCollisionMass();
+			}
+
+			// Pause on collision if enabled
+			if (m_bPauseOnCollision)
+			{
+				PauseSimulation();
+				TRACE(_T("Paused due to collision\n"));
+				break;  // Exit loop to stop simulation
+			}
+
+			for (const auto& event : collisionEvents)
+			{
+				AddCollisionFlash(event.x, event.y, event.z, event.color);
+			}
+		}
+
 		delete pDoc->m_pCurrentUniverse;
 		pDoc->m_pCurrentUniverse = pNextUniverse;
 	}
@@ -860,10 +1418,7 @@ void CEpistemotronView::OnSimulationStep()
 void CEpistemotronView::OnSimulationConfig()
 {
 	CSimConfigDlg dlg(this);
-	// Note: Dialog resource IDD_SIM_CONFIG_DLG must be created in Visual Studio
-	// Required controls: IDC_EDIT_NUM_BODIES, IDC_EDIT_STEP_SIZE, IDC_EDIT_STEPS_PER_FRAME,
-	// IDC_CHECK_RANDOM, IDC_EDIT_RANDOM_RADIUS, IDC_EDIT_DESCRIPTION, IDC_BTN_RANDOMIZE
-	int result = dlg.DoModal();
+	INT_PTR result = dlg.DoModal();
 	if (result == IDOK)
 	{
 		CSimConfigDlg::SimConfig config = dlg.GetConfig();
@@ -871,12 +1426,6 @@ void CEpistemotronView::OnSimulationConfig()
 		m_stepsPerFrame = config.stepsPerFrame;
 		// TODO: Apply other configuration settings (numBodies, random positions, etc.)
 		Invalidate();
-	}
-	else if (result == -1)  // -1 indicates dialog creation failed
-	{
-		AfxMessageBox(_T("Configuration dialog not available.\n\n"
-		                 "The dialog resource (IDD_SIM_CONFIG_DLG) needs to be created in Visual Studio.\n"
-		                 "See TODO.md for details."));
 	}
 }
 
@@ -891,6 +1440,11 @@ void CEpistemotronView::LoadScenarioSolarSystem()
 	pDoc->m_pCurrentUniverse->LoadScenario(ScenarioType::SolarSystem);
 	m_stepSizeSec = STEP_SIZE_SOLAR_SYSTEM;
 	m_currentScenario = ScenarioType::SolarSystem;
+
+	// Initialize reference energy and momentum for drift calculation
+	m_initialTotalEnergy = pDoc->m_pCurrentUniverse->GetTotalEnergy();
+	m_initialLinearMomentum = pDoc->m_pCurrentUniverse->GetTotalLinearMomentumMagnitude();
+	m_initialAngularMomentum = pDoc->m_pCurrentUniverse->GetTotalAngularMomentumMagnitude();
 }
 
 void CEpistemotronView::LoadScenarioBinaryStar()
@@ -902,6 +1456,11 @@ void CEpistemotronView::LoadScenarioBinaryStar()
 	pDoc->m_pCurrentUniverse->LoadScenario(ScenarioType::BinaryStar);
 	m_stepSizeSec = STEP_SIZE_BINARY_STAR;
 	m_currentScenario = ScenarioType::BinaryStar;
+
+	// Initialize reference energy and momentum for drift calculation
+	m_initialTotalEnergy = pDoc->m_pCurrentUniverse->GetTotalEnergy();
+	m_initialLinearMomentum = pDoc->m_pCurrentUniverse->GetTotalLinearMomentumMagnitude();
+	m_initialAngularMomentum = pDoc->m_pCurrentUniverse->GetTotalAngularMomentumMagnitude();
 }
 
 void CEpistemotronView::LoadScenarioThreeBody()
@@ -913,6 +1472,11 @@ void CEpistemotronView::LoadScenarioThreeBody()
 	pDoc->m_pCurrentUniverse->LoadScenario(ScenarioType::ThreeBody);
 	m_stepSizeSec = STEP_SIZE_THREE_BODY;
 	m_currentScenario = ScenarioType::ThreeBody;
+
+	// Initialize reference energy and momentum for drift calculation
+	m_initialTotalEnergy = pDoc->m_pCurrentUniverse->GetTotalEnergy();
+	m_initialLinearMomentum = pDoc->m_pCurrentUniverse->GetTotalLinearMomentumMagnitude();
+	m_initialAngularMomentum = pDoc->m_pCurrentUniverse->GetTotalAngularMomentumMagnitude();
 }
 
 void CEpistemotronView::LoadScenarioGalaxy()
@@ -924,6 +1488,11 @@ void CEpistemotronView::LoadScenarioGalaxy()
 	pDoc->m_pCurrentUniverse->LoadScenario(ScenarioType::Galaxy);
 	m_stepSizeSec = STEP_SIZE_GALAXY;
 	m_currentScenario = ScenarioType::Galaxy;
+
+	// Initialize reference energy and momentum for drift calculation
+	m_initialTotalEnergy = pDoc->m_pCurrentUniverse->GetTotalEnergy();
+	m_initialLinearMomentum = pDoc->m_pCurrentUniverse->GetTotalLinearMomentumMagnitude();
+	m_initialAngularMomentum = pDoc->m_pCurrentUniverse->GetTotalAngularMomentumMagnitude();
 }
 
 void CEpistemotronView::CycleScenario()
@@ -1130,6 +1699,12 @@ void CEpistemotronView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		Invalidate();
 		break;
 
+	case VK_F1:
+		// Toggle help overlay
+		m_bShowHelp = !m_bShowHelp;
+		Invalidate();
+		break;
+
 	case 'I':
 	case 'i':
 		// Toggle integrator
@@ -1167,8 +1742,125 @@ void CEpistemotronView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		Invalidate();
 		break;
 
+	case 'S':
+	case 's':
+		// Simulation reset (different from rotation reset)
+		ResetSimulation();
+		Invalidate();
+		break;
+
+	case 'E':
+	case 'e':
+		// Toggle recording
+		if (m_bRecording)
+		{
+			StopRecording();
+		}
+		else
+		{
+			CString path;
+			path = _T(".\\recordings");
+			StartRecording(path, _T("frame"));
+		}
+		Invalidate();
+		break;
+
 	default:
 		CView::OnKeyDown(nChar, nRepCnt, nFlags);
+		break;
+	}
+}
+
+void CEpistemotronView::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	BOOL handled = FALSE;
+
+	switch (nChar)
+	{
+	case VK_SPACE:
+		// Space: pause/resume simulation
+		if (m_simulationState == SimulationState::Running)
+		{
+			PauseSimulation();
+		}
+		else if (m_simulationState == SimulationState::Paused)
+		{
+			ResumeSimulation();
+		}
+		Invalidate();
+		handled = TRUE;
+		break;
+
+	case '1':
+		LoadScenarioSolarSystem();
+		Invalidate();
+		handled = TRUE;
+		break;
+
+	case '2':
+		LoadScenarioBinaryStar();
+		Invalidate();
+		handled = TRUE;
+		break;
+
+	case '3':
+		LoadScenarioThreeBody();
+		Invalidate();
+		handled = TRUE;
+		break;
+
+	case '4':
+		LoadScenarioGalaxy();
+		Invalidate();
+		handled = TRUE;
+		break;
+
+	case '?':
+		// Toggle help overlay
+		m_bShowHelp = !m_bShowHelp;
+		Invalidate();
+		handled = TRUE;
+		break;
+
+	case 'C':
+	case 'c':
+		{
+		// Toggle collision detection
+		m_bEnableCollisions = !m_bEnableCollisions;
+		CString statusMsg = m_bEnableCollisions ? _T("Collision detection: ON") : _T("Collision detection: OFF");
+		SetStatusBarMessage(statusMsg);
+		TRACE(_T("%s\n"), statusMsg);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'P':
+	case 'p':
+		{
+		// Toggle pause on collision
+		m_bPauseOnCollision = !m_bPauseOnCollision;
+		CString pauseStatus = m_bPauseOnCollision ? _T("Pause on collision: ON") : _T("Pause on collision: OFF");
+		SetStatusBarMessage(pauseStatus);
+		TRACE(_T("%s\n"), pauseStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'V':
+	case 'v':
+		{
+		// Clear collision visual effects
+		m_collisionFlashes.clear();
+		SetStatusBarMessage(_T("Collision flashes cleared"));
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	default:
+		CView::OnChar(nChar, nRepCnt, nFlags);
 		break;
 	}
 }
@@ -1190,6 +1882,128 @@ CString CEpistemotronView::GetIntegratorName() const
 
 void CEpistemotronView::OnLButtonDown(UINT nFlags, CPoint point)
 {
+	// Check for Ctrl key to deselect
+	if ((nFlags & MK_CONTROL) != 0)
+	{
+		m_selectedBodyIndex = -1;
+		m_selectedBodyInfo.Empty();
+		RefreshView();
+		CView::OnLButtonDown(nFlags, point);
+		return;
+	}
+
+	CEpistemotronDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->m_pCurrentUniverse)
+	{
+		CView::OnLButtonDown(nFlags, point);
+		return;
+	}
+
+	Universe* pUniverse = pDoc->m_pCurrentUniverse;
+	CRect rcClient;
+	GetClientRect(&rcClient);
+
+	int centerX = rcClient.Width() / 2;
+	int centerY = rcClient.Height() / 2;
+
+	// Pre-compute trigonometric values for camera rotation
+	const double cosYaw = cos(m_rotationYaw);
+	const double sinYaw = sin(m_rotationYaw);
+	const double cosPitch = cos(m_rotationPitch);
+	const double sinPitch = sin(m_rotationPitch);
+	const double cosRoll = cos(m_rotationRoll);
+	const double sinRoll = sin(m_rotationRoll);
+
+	// Try to find a clicked body
+	int clickedIndex = -1;
+	int bestRadius = 0;
+
+	int massCount = pUniverse->GetMassCount();
+	for (int i = 0; i < massCount; i++)
+	{
+		const Mass& m = pUniverse->GetAt(i);
+
+		// Apply camera rotation to position
+		double rotatedX = m.m_X;
+		double rotatedY = m.m_Y;
+		double rotatedZ = m.m_Z;
+
+		// Apply yaw rotation (around Y-axis)
+		double tempX = rotatedX * cosYaw - rotatedZ * sinYaw;
+		double tempZ = rotatedX * sinYaw + rotatedZ * cosYaw;
+		rotatedX = tempX;
+		rotatedZ = tempZ;
+
+		// Apply pitch rotation (around X-axis)
+		double tempY = rotatedY * cosPitch - rotatedZ * sinPitch;
+		rotatedZ = rotatedY * sinPitch + rotatedZ * cosPitch;
+		rotatedY = tempY;
+
+		// Apply roll rotation (around Z-axis)
+		tempX = rotatedX * cosRoll - rotatedY * sinRoll;
+		rotatedY = rotatedX * sinRoll + rotatedY * cosRoll;
+		rotatedX = tempX;
+		rotatedY = tempY;
+
+		// Skip objects behind camera
+		if (rotatedZ >= m_cameraDistance - CAMERA_Z_BUFFER)
+			continue;
+
+		// Perspective projection
+		double scale = m_fieldOfView / (m_cameraDistance - rotatedZ);
+
+		// Apply pan offset
+		double panX = m_panOffsetX * scale;
+		double panY = m_panOffsetY * scale;
+
+		int screenX = centerX + (int)(rotatedX * scale) + (int)panX;
+		int screenY = centerY - (int)(rotatedY * scale) - (int)panY;
+
+		// Calculate body radius
+		int radius = static_cast<int>(pow(m.m_MasseKG, 1.0 / 3.0) * m_massScaleFactor);
+		radius = max(MIN_BODY_RADIUS, min(radius, MAX_BODY_RADIUS));
+
+		// Check if click is within body
+		int dx = point.x - screenX;
+		int dy = point.y - screenY;
+		double dist = sqrt(dx * dx + dy * dy);
+
+		if (dist <= radius && radius > bestRadius)
+		{
+			clickedIndex = i;
+			bestRadius = radius;
+		}
+	}
+
+	// Update selection
+	if (clickedIndex >= 0 && clickedIndex != m_selectedBodyIndex)
+	{
+		m_selectedBodyIndex = clickedIndex;
+		const Mass& selected = pUniverse->GetAt(clickedIndex);
+		double kineticEnergy = selected.GetKineticEnergy();
+		CString orbitalPeriod = CalculateOrbitalPeriod(selected, *pUniverse, clickedIndex);
+
+		m_selectedBodyInfo.Format(
+			_T("=== Selected Body ===\n")
+			_T("Mass: %s kg\n")
+			_T("Position: (%.2f, %.2f, %.2f) km\n")
+			_T("Velocity: (%.2f, %.2f, %.2f) m/s\n")
+			_T("Kinetic Energy: %s J\n")
+			_T("Orbital Period: %s"),
+			FormatScientific(selected.m_MasseKG),
+			selected.m_X, selected.m_Y, selected.m_Z,
+			selected.m_VitesseX, selected.m_VitesseY, selected.m_VitesseZ,
+			FormatScientific(kineticEnergy),
+			orbitalPeriod
+		);
+	}
+	else if (clickedIndex == -1 && m_selectedBodyIndex >= 0)
+	{
+		// Clicked in empty space, deselect
+		m_selectedBodyIndex = -1;
+		m_selectedBodyInfo.Empty();
+	}
+
 	// Start dragging for pan
 	m_bDragging = TRUE;
 	m_lastMousePos = point;
@@ -1301,4 +2115,287 @@ void CEpistemotronView::OnMButtonUp(UINT nFlags, CPoint point)
 	ReleaseCapture();  // Release mouse capture
 
 	CView::OnMButtonUp(nFlags, point);
+}
+
+
+// ============================================================================
+// Recording implementation
+// ============================================================================
+
+void CEpistemotronView::StartRecording(LPCTSTR path, LPCTSTR prefix)
+{
+	// Create directory if it doesn't exist
+	if (GetFileAttributes(path) == INVALID_FILE_ATTRIBUTES)
+	{
+		if (!CreateDirectory(path, nullptr))
+		{
+			TRACE(_T("Failed to create recording directory: %s\n"), path);
+			AfxMessageBox(_T("Failed to create recording directory.\nPlease check the path and try again."), MB_ICONERROR);
+			return;
+		}
+	}
+
+	// Initialize recording state
+	m_recordPath = path;
+	m_recordPrefix = prefix;
+	m_recordFrameCount = 0;
+	m_bRecording = TRUE;
+
+	TRACE(_T("Recording started: path=%s, prefix=%s\n"), path, prefix);
+}
+
+void CEpistemotronView::StopRecording()
+{
+	m_bRecording = FALSE;
+	m_recordPath.Empty();
+	m_recordPrefix.Empty();
+
+	TRACE(_T("Recording stopped after %d frames\n"), m_recordFrameCount);
+}
+
+CString CEpistemotronView::GetRecordStatus() const
+{
+	if (!m_bRecording)
+	{
+		return _T("Recording: OFF");
+	}
+	CString status;
+	status.Format(_T("Recording: ON (%d frames)"), m_recordFrameCount);
+	return status;
+}
+
+void CEpistemotronView::SaveCurrentFrame()
+{
+	if (!m_bRecording || m_memBitmap.m_hObject == nullptr)
+	{
+		return;
+	}
+
+	// Generate filename with sequential numbering (prefix_00001.bmp)
+	CString filename;
+	filename.Format(_T("%s\\%s_%05d.bmp"), m_recordPath, m_recordPrefix, m_recordFrameCount + 1);
+
+	// Get bitmap dimensions
+	BITMAP bmpInfo;
+	if (!m_memBitmap.GetBitmap(&bmpInfo))
+	{
+		TRACE(_T("Failed to get bitmap info for frame %d\n"), m_recordFrameCount + 1);
+		return;
+	}
+
+	int width = bmpInfo.bmWidth;
+	int height = bmpInfo.bmHeight;
+
+	// Create a compatible DC to get the DIB
+	CDC* pSrcDC = CDC::FromHandle(m_memDC.m_hDC);
+	if (pSrcDC == nullptr)
+	{
+		TRACE(_T("Failed to get DC for frame %d\n"), m_recordFrameCount + 1);
+		return;
+	}
+
+	// Prepare BITMAPINFO structure to get DIB data
+	BITMAPINFO bmi;
+	ZeroMemory(&bmi, sizeof(BITMAPINFO));
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = width;
+	bmi.bmiHeader.biHeight = -height;  // Negative for top-down DIB
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 24;
+	bmi.bmiHeader.biCompression = BI_RGB;
+
+	// Allocate buffer for pixel data
+	DWORD dwBytesRequired = ((width * 3 + 3) & ~3) * height;  // Row-aligned
+	BYTE* pBits = new BYTE[dwBytesRequired];
+	if (pBits == nullptr)
+	{
+		TRACE(_T("Failed to allocate buffer for frame %d\n"), m_recordFrameCount + 1);
+		return;
+	}
+
+	// Get the DIB bits from the bitmap
+	HDC hdc = m_memDC.GetSafeHdc();
+	int lines = ::GetDIBits(hdc, m_memBitmap, 0, height, pBits, &bmi, DIB_RGB_COLORS);
+	if (lines <= 0)
+	{
+		TRACE(_T("Failed to get DIB bits for frame %d\n"), m_recordFrameCount + 1);
+		delete[] pBits;
+		return;
+	}
+
+	// Calculate actual DIB size
+	DWORD dibSize = sizeof(BITMAPINFOHEADER) + dwBytesRequired;
+
+	// Write BMP file
+	CFile file;
+	if (file.Open(filename, CFile::modeCreate | CFile::modeWrite | CFile::modeNoTruncate))
+	{
+		// BMP file header
+		BITMAPFILEHEADER bfh;
+		bfh.bfType = 0x4D42;  // 'BM'
+		bfh.bfSize = dibSize + sizeof(BITMAPFILEHEADER);
+		bfh.bfReserved1 = 0;
+		bfh.bfReserved2 = 0;
+		bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+
+		file.Write(&bfh, sizeof(BITMAPFILEHEADER));
+
+		// Write DIB header
+		file.Write(&bmi.bmiHeader, sizeof(BITMAPINFOHEADER));
+
+		// Write pixel data
+		file.Write(pBits, dwBytesRequired);
+
+		file.Close();
+		TRACE(_T("Saved frame %d to %s\n"), m_recordFrameCount + 1, filename);
+	}
+	else
+	{
+		TRACE(_T("Failed to open file for writing frame %d: %s\n"), m_recordFrameCount + 1, filename);
+	}
+
+	delete[] pBits;
+
+	// Increment frame counter
+	m_recordFrameCount++;
+}
+
+void CEpistemotronView::OnRecordingStart()
+{
+	// Default recording path: current directory with "Frames" subfolder
+	CString defaultPath;
+	GetModuleFileName(nullptr, defaultPath.GetBuffer(MAX_PATH), MAX_PATH);
+	defaultPath.ReleaseBuffer();
+	defaultPath = defaultPath.Left(defaultPath.ReverseFind('\\'));
+	defaultPath += _T("\\Frames");
+
+	// Default prefix
+	CString defaultPrefix = _T("frame");
+
+	// Start recording with defaults
+	StartRecording(defaultPath, defaultPrefix);
+
+	// Show confirmation
+	CString msg;
+	msg.Format(_T("Recording started.\nFrames will be saved to:\n%s\n\nPress Stop Recording when done."), defaultPath);
+	AfxMessageBox(msg, MB_ICONINFORMATION);
+}
+
+void CEpistemotronView::OnRecordingStop()
+{
+	if (!m_bRecording)
+	{
+		AfxMessageBox(_T("Recording is not active."), MB_ICONINFORMATION);
+		return;
+	}
+
+	StopRecording();
+
+	CString msg;
+	msg.Format(_T("Recording stopped.\nTotal frames saved: %d"), m_recordFrameCount);
+	AfxMessageBox(msg, MB_ICONINFORMATION);
+}
+
+// ============================================================================
+// Save/Load State Handlers
+// ============================================================================
+
+void CEpistemotronView::OnStateSave()
+{
+	CEpistemotronDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->m_pCurrentUniverse)
+	{
+		SetStatusBarMessage(_T("No simulation active to save"));
+		AfxMessageBox(_T("No simulation active to save."), MB_ICONWARNING);
+		return;
+	}
+
+	SetStatusBarMessage(_T("Select file to save simulation state..."));
+
+	// Create file save dialog
+	CFileDialog saveDlg(FALSE, _T("esp"), _T("simulation.esp"),
+		OFN_OVERWRITEPROMPT,
+		_T("Epistemotron Save File (*.esp)|*.esp|All Files (*.*)|*.*||"),
+		this);
+
+	if (saveDlg.DoModal() == IDOK)
+	{
+		CString filepath = saveDlg.GetPathName();
+
+		if (pDoc->m_pCurrentUniverse->SaveState(filepath))
+		{
+			CString msg;
+			msg.Format(_T("Saved: %s"), filepath);
+			SetStatusBarMessage(msg);
+			AfxMessageBox(msg, MB_ICONINFORMATION);
+		}
+		else
+		{
+			SetStatusBarMessage(_T("Failed to save simulation state"));
+			AfxMessageBox(_T("Failed to save simulation state."), MB_ICONERROR);
+		}
+	}
+}
+
+void CEpistemotronView::OnStateLoad()
+{
+	SetStatusBarMessage(_T("Select file to load simulation state..."));
+
+	// Create file open dialog
+	CFileDialog openDlg(TRUE, _T("esp"), nullptr,
+		0,
+		_T("Epistemotron Save File (*.esp)|*.esp|All Files (*.*)|*.*||"),
+		this);
+
+	if (openDlg.DoModal() == IDOK)
+	{
+		CString filepath = openDlg.GetPathName();
+
+		CEpistemotronDoc* pDoc = GetDocument();
+		if (!pDoc)
+		{
+			SetStatusBarMessage(_T("No document available"));
+			AfxMessageBox(_T("No document available."), MB_ICONERROR);
+			return;
+		}
+
+		SetStatusBarMessage(_T("Loading simulation state..."));
+
+		// Create new universe and load state
+		Universe* pNewUniverse = new Universe(1);
+		if (pNewUniverse->LoadState(filepath))
+		{
+			// Replace current universe
+			if (pDoc->m_pCurrentUniverse)
+			{
+				delete pDoc->m_pCurrentUniverse;
+			}
+			pDoc->m_pCurrentUniverse = pNewUniverse;
+
+			// Reset collision statistics for the loaded state
+			m_totalCollisions = pNewUniverse->GetTotalCollisions();
+			m_largestCollisionMass = pNewUniverse->GetLargestCollisionMass();
+			m_lastCollisionTime = 0;
+
+			// Initialize reference energy and momentum
+			m_initialTotalEnergy = pNewUniverse->GetTotalEnergy();
+			m_initialLinearMomentum = pNewUniverse->GetTotalLinearMomentumMagnitude();
+			m_initialAngularMomentum = pNewUniverse->GetTotalAngularMomentumMagnitude();
+
+			CString msg;
+			msg.Format(_T("Loaded: %s (Bodies: %d, Iteration: %d)"),
+				filepath, pNewUniverse->GetMassCount(), pNewUniverse->m_iIteration);
+			SetStatusBarMessage(msg);
+			AfxMessageBox(msg, MB_ICONINFORMATION);
+
+			// Refresh view
+			Invalidate();
+		}
+		else
+		{
+			delete pNewUniverse;
+			SetStatusBarMessage(_T("Failed to load simulation state"));
+			AfxMessageBox(_T("Failed to load simulation state.\nFile may be corrupted or invalid format."), MB_ICONERROR);
+		}
+	}
 }

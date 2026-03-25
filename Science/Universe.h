@@ -61,5 +61,58 @@ public:
 
 	// Iteration counter (public for simulation control)
 	int m_iIteration;
+
+	// Collision counter - tracks total collisions since universe creation
+	int m_totalCollisions;
+
+	// Largest collision mass (for statistics)
+	double m_largestCollisionMass;
+
+	// Collision processing toggle (set from View)
+	BOOL m_bEnableCollisions;
+
+	// Last collision positions for visual feedback (cleared after reading)
+	struct CollisionEvent
+	{
+		double x, y, z;  // Position in km
+		COLORREF color;  // Suggested color based on mass
+	};
+	std::vector<CollisionEvent> m_lastCollisions;
+
+	// ============================================================================
+	// Collision Detection and Handling
+	// ============================================================================
+
+	/// Process collisions between all bodies and merge colliding pairs
+	/// Uses conservation of mass and momentum to compute merged body properties
+	/// @param enableCollisions If false, skip collision processing
+	/// @return Number of collisions that occurred in this step
+	int ProcessCollisionsSimple(BOOL enableCollisions = TRUE);
+
+	/// Get total collision count
+	/// @return Total number of collisions that have occurred
+	int GetTotalCollisions() const { return m_totalCollisions; }
+
+	/// Get and clear last collision events for visual feedback
+	/// @return Vector of collision events (positions and colors)
+	std::vector<CollisionEvent> ConsumeLastCollisions();
+
+	/// Get the largest collision mass
+	/// @return Mass in kg of the largest collision
+	double GetLargestCollisionMass() const { return m_largestCollisionMass; }
+
+	// ============================================================================
+	// Save/Load Simulation State
+	// ============================================================================
+
+	/// Save universe state to a file
+	/// @param filename Path to save file
+	/// @return TRUE on success, FALSE on failure
+	BOOL SaveState(LPCTSTR filename);
+
+	/// Load universe state from a file
+	/// @param filename Path to load file
+	/// @return TRUE on success, FALSE on failure
+	BOOL LoadState(LPCTSTR filename);
 };
 

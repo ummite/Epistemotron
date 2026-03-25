@@ -82,14 +82,147 @@ namespace PPMExportConstants
 
 
 Universe::Universe()
-	: m_iIteration(0)
+	: m_iIteration(0), m_totalCollisions(0), m_largestCollisionMass(0.0), m_bEnableCollisions(TRUE)
 {
 }
 
 Universe::Universe(int m_iMasses) :
-	m_iIteration(0)
+	m_iIteration(0), m_totalCollisions(0), m_largestCollisionMass(0.0), m_bEnableCollisions(TRUE)
 {
 	m_arrMasses.SetSize(m_iMasses);
+}
+
+// Get and clear last collision events for visual feedback
+std::vector<Universe::CollisionEvent> Universe::ConsumeLastCollisions()
+{
+	std::vector<CollisionEvent> events = std::move(m_lastCollisions);
+	m_lastCollisions.clear();
+	return events;
+}
+
+// ============================================================================
+// Save/Load Simulation State
+// ============================================================================
+
+// Save universe state to a file (binary format)
+BOOL Universe::SaveState(LPCTSTR filename)
+{
+	CFile file;
+	CFileException exception;
+
+	if (!file.Open(filename, CFile::modeCreate | CFile::modeWrite | CFile::typeBinary, &exception))
+	{
+		TRACE(_T("Failed to create save file: %s\n"), filename);
+		return FALSE;
+	}
+
+	// Write file header with magic number and version
+	constexpr DWORD SAVE_FILE_MAGIC = 0x50455355;  // "PEUS" - Physics Engine Universe Save
+	constexpr DWORD SAVE_FILE_VERSION = 1;
+
+	file.Write(&SAVE_FILE_MAGIC, sizeof(SAVE_FILE_MAGIC));
+	file.Write(&SAVE_FILE_VERSION, sizeof(SAVE_FILE_VERSION));
+
+	// Write simulation state
+	file.Write(&m_iIteration, sizeof(m_iIteration));
+	file.Write(&m_totalCollisions, sizeof(m_totalCollisions));
+	file.Write(&m_largestCollisionMass, sizeof(m_largestCollisionMass));
+
+	// Write body count
+	int bodyCount = GetMassCount();
+	file.Write(&bodyCount, sizeof(bodyCount));
+
+	// Write each body's state
+	for (int i = 0; i < bodyCount; i++)
+	{
+		const Mass& m = m_arrMasses.GetAt(i);
+		file.Write(&m.m_X, sizeof(m.m_X));
+		file.Write(&m.m_Y, sizeof(m.m_Y));
+		file.Write(&m.m_Z, sizeof(m.m_Z));
+		file.Write(&m.m_VitesseX, sizeof(m.m_VitesseX));
+		file.Write(&m.m_VitesseY, sizeof(m.m_VitesseY));
+		file.Write(&m.m_VitesseZ, sizeof(m.m_VitesseZ));
+		file.Write(&m.m_MasseKG, sizeof(m.m_MasseKG));
+	}
+
+	file.Close();
+	TRACE(_T("Saved universe state to %s (%d bodies, iteration %d)\n"),
+	      filename, bodyCount, m_iIteration);
+
+	return TRUE;
+}
+
+// Load universe state from a file (binary format)
+BOOL Universe::LoadState(LPCTSTR filename)
+{
+	CFile file;
+	CFileException exception;
+
+	if (!file.Open(filename, CFile::modeRead | CFile::typeBinary, &exception))
+	{
+		TRACE(_T("Failed to open save file: %s\n"), filename);
+		return FALSE;
+	}
+
+	// Read and verify file header
+	constexpr DWORD EXPECTED_MAGIC = 0x50455355;  // "PEUS"
+	DWORD magic, version;
+
+	file.Read(&magic, sizeof(magic));
+	file.Read(&version, sizeof(version));
+
+	if (magic != EXPECTED_MAGIC)
+	{
+		TRACE(_T("Invalid save file format (bad magic number)\n"));
+		file.Close();
+		return FALSE;
+	}
+
+	if (version != 1)
+	{
+		TRACE(_T("Unsupported save file version: %d\n"), version);
+		file.Close();
+		return FALSE;
+	}
+
+	// Read simulation state
+	file.Read(&m_iIteration, sizeof(m_iIteration));
+	file.Read(&m_totalCollisions, sizeof(m_totalCollisions));
+	file.Read(&m_largestCollisionMass, sizeof(m_largestCollisionMass));
+
+	// Read body count and resize array
+	int bodyCount;
+	file.Read(&bodyCount, sizeof(bodyCount));
+
+	if (bodyCount <= 0 || bodyCount > 100000)  // Sanity check
+	{
+		TRACE(_T("Invalid body count in save file: %d\n"), bodyCount);
+		file.Close();
+		return FALSE;
+	}
+
+	m_arrMasses.SetSize(bodyCount);
+	m_lastCollisions.clear();  // Clear any pending collision events
+
+	// Read each body's state
+	for (int i = 0; i < bodyCount; i++)
+	{
+		Mass& m = m_arrMasses.GetAt(i);
+		file.Read(&m.m_X, sizeof(m.m_X));
+		file.Read(&m.m_Y, sizeof(m.m_Y));
+		file.Read(&m.m_Z, sizeof(m.m_Z));
+		file.Read(&m.m_VitesseX, sizeof(m.m_VitesseX));
+		file.Read(&m.m_VitesseY, sizeof(m.m_VitesseY));
+		file.Read(&m.m_VitesseZ, sizeof(m.m_VitesseZ));
+		file.Read(&m.m_MasseKG, sizeof(m.m_MasseKG));
+		m.ClearTrail();  // Clear trails on load
+	}
+
+	file.Close();
+	TRACE(_T("Loaded universe state from %s (%d bodies, iteration %d)\n"),
+	      filename, bodyCount, m_iIteration);
+
+	return TRUE;
 }
 
 Universe::~Universe()
@@ -286,9 +419,11 @@ void Universe::LoadGalaxy()
 		const double orbitalSpeed = std::sqrt(G * centralMass / (radius * KM_TO_METER));
 
 		// Velocity perpendicular to position (tangential)
+		// For this parametrization where z = radius * sinInclination (constant),
+		// the velocity in Z is zero since z doesn't change with orbital angle
 		const double vx = -orbitalSpeed * sinAngle * cosInclination;
 		const double vy =  orbitalSpeed * cosAngle * cosInclination;
-		const double vz =  orbitalSpeed * sinInclination;
+		const double vz = 0.0;  // z is constant for each star, so vz = 0
 
 		InitializeMass(m_arrMasses[i + 1], starMass, x, y, z, vx, vy, vz);
 	}
@@ -437,6 +572,9 @@ void Universe::SimulateFrom(const Universe& p_roUniverse, int p_iStepSize)
 		roMass.RecordTrailPosition();
 		roMass.LimitTrailLength(Mass::MAX_TRAIL_LENGTH);
 	}
+
+	// Step 4: Process collisions after position update
+	ProcessCollisionsSimple();
 }
 
 // Helper function to compute accelerations for all bodies (used by Velocity Verlet)
@@ -598,6 +736,131 @@ void Universe::SimulateFromVelocityVerlet(const Universe& p_roUniverse, int p_iS
 	}
 
 	m_iIteration = p_roUniverse.m_iIteration + 1;
+
+	// Step 6: Process collisions after position update
+	ProcessCollisionsSimple();
+}
+
+// Collision processing - detects and merges colliding bodies
+// Returns the number of collisions that occurred
+int Universe::ProcessCollisionsSimple(BOOL enableCollisions)
+{
+	if (!enableCollisions || !m_bEnableCollisions)
+	{
+		return 0;  // Skip collision processing
+	}
+
+	const int n = static_cast<int>(m_arrMasses.GetSize());
+	if (n < 2)
+	{
+		return 0;
+	}
+
+	// Track collision pairs: collisionPair[i] = j means bodies i and j collided (-1 if no collision)
+	std::vector<int> collisionPair(n, -1);
+	int collisionCount = 0;
+
+	// Check all unique pairs for collisions
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = i + 1; j < n; j++)
+		{
+			// Skip if either body already has a collision partner
+			if (collisionPair[i] != -1 || collisionPair[j] != -1)
+				continue;
+
+			const Mass& massI = m_arrMasses.GetAt(i);
+			const Mass& massJ = m_arrMasses.GetAt(j);
+
+			if (massI.IsCollidingWith(massJ))
+			{
+				// Record this collision pair
+				collisionPair[i] = j;
+				collisionPair[j] = i;
+				collisionCount++;
+			}
+		}
+	}
+
+	// Process all collisions and build new mass array
+	if (collisionCount > 0)
+	{
+		CArray<Mass, Mass> newMasses;
+		newMasses.SetSize(n - collisionCount);
+
+		int newIndex = 0;
+
+		for (int i = 0; i < n; i++)
+		{
+			int partner = collisionPair[i];
+
+			if (partner == -1)
+			{
+				// No collision - keep this body as-is
+				newMasses.SetAt(newIndex++, m_arrMasses.GetAt(i));
+			}
+			else if (partner > i)
+			{
+				// This is the first body in the collision pair - create merged body
+				const Mass& massI = m_arrMasses.GetAt(i);
+				const Mass& massJ = m_arrMasses.GetAt(partner);
+
+				// Conservation of mass
+				const double mergedMass = massI.m_MasseKG + massJ.m_MasseKG;
+
+				// Conservation of linear momentum: v_merged = (m1*v1 + m2*v2) / (m1 + m2)
+				const double mergedVX = (massI.m_MasseKG * massI.m_VitesseX + massJ.m_MasseKG * massJ.m_VitesseX) / mergedMass;
+				const double mergedVY = (massI.m_MasseKG * massI.m_VitesseY + massJ.m_MasseKG * massJ.m_VitesseY) / mergedMass;
+				const double mergedVZ = (massI.m_MasseKG * massI.m_VitesseZ + massJ.m_MasseKG * massJ.m_VitesseZ) / mergedMass;
+
+				// Center of mass position: r_cm = (m1*r1 + m2*r2) / (m1 + m2)
+				const double mergedX = (massI.m_MasseKG * massI.m_X + massJ.m_MasseKG * massJ.m_X) / mergedMass;
+				const double mergedY = (massI.m_MasseKG * massI.m_Y + massJ.m_MasseKG * massJ.m_Y) / mergedMass;
+				const double mergedZ = (massI.m_MasseKG * massI.m_Z + massJ.m_MasseKG * massJ.m_Z) / mergedMass;
+
+				// Create merged body
+				Mass mergedBody;
+				mergedBody.m_MasseKG = mergedMass;
+				mergedBody.m_X = mergedX;
+				mergedBody.m_Y = mergedY;
+				mergedBody.m_Z = mergedZ;
+				mergedBody.m_VitesseX = mergedVX;
+				mergedBody.m_VitesseY = mergedVY;
+				mergedBody.m_VitesseZ = mergedVZ;
+				mergedBody.ClearTrail();  // Start fresh trail for merged body
+
+				newMasses.SetAt(newIndex++, mergedBody);
+
+				// Record collision event for visual feedback
+				// Color based on merged mass (white-hot for massive, yellow for medium, orange for small)
+				COLORREF flashColor;
+				if (mergedMass > MASSE_SOLEIL)
+					flashColor = RGB(255, 255, 200);  // White-yellow for stellar mass
+				else if (mergedMass > 1e24)  // Earth mass scale
+					flashColor = RGB(255, 200, 100);  // Orange-yellow for planetary mass
+				else
+					flashColor = RGB(255, 150, 50);   // Orange for smaller bodies
+
+				m_lastCollisions.push_back({ mergedX, mergedY, mergedZ, flashColor });
+
+				// Track largest collision
+				if (mergedMass > m_largestCollisionMass)
+				{
+					m_largestCollisionMass = mergedMass;
+				}
+			}
+			// else: partner < i, so this body was already merged into the partner - skip it
+		}
+
+		// Copy new masses back to m_arrMasses using Copy() since CArray doesn't support
+// assignment when element type contains std::vector
+		m_arrMasses.Copy(newMasses);
+
+		// Update total collision count
+		m_totalCollisions += collisionCount;
+	}
+
+	return collisionCount;
 }
 
 // Calculate total kinetic energy: sum of 0.5 * m * v^2 for all masses

@@ -176,6 +176,29 @@
 // IDs 185-199 reserved for future simulation toolbar resources
 
 //------------------------------------------------------------------------------
+// BUILD COMMANDS
+//------------------------------------------------------------------------------
+#define ID_BUILD_CLEAN_ALL              185
+
+//------------------------------------------------------------------------------
+// DEBUG COMMANDS
+//------------------------------------------------------------------------------
+#define ID_DEBUG_END                    186
+
+//------------------------------------------------------------------------------
+// EDIT COMMANDS
+//------------------------------------------------------------------------------
+#define ID_EDIT_FIND_NEXT               187
+
+//------------------------------------------------------------------------------
+// CLASS/FILE COMMANDS
+//------------------------------------------------------------------------------
+#define ID_CLASS_ADD                    188
+#define ID_FILE_ADD                     189
+#define ID_RENAME                       190
+#define ID_MOVE                         191
+
+//------------------------------------------------------------------------------
 // THEME AND STYLE RESOURCES
 //------------------------------------------------------------------------------
 #define IDR_THEME_MENU                  200
@@ -205,6 +228,8 @@
 // BUILD/DEBUG STRING IDS (IDS_*_TAB)
 //------------------------------------------------------------------------------
 #define IDS_HELLO                       1
+#define IDS_APP_TITLE                   2
+#define IDS_APP_FULL_TITLE              3
 #define IDS_BUILD_TAB                   300
 #define IDS_DEBUG_TAB                   301
 #define IDS_FIND_TAB                    302
@@ -269,9 +294,26 @@
 #define ID_SCENARIO_NEXT                32784   // Cycle to next scenario
 
 //------------------------------------------------------------------------------
-// PLACEHOLDER COMMANDS - RESERVED (32785-32799)
+// PLACEHOLDER COMMANDS - RESERVED (32785-32786)
 //------------------------------------------------------------------------------
-// Commands 32785-32799 reserved for additional scenarios
+// Commands 32785-32786 reserved for additional scenarios
+
+//------------------------------------------------------------------------------
+// RECORDING COMMANDS (ID_RECORDING_*)
+//------------------------------------------------------------------------------
+#define ID_RECORDING_START              32787
+#define ID_RECORDING_STOP               32788
+
+//------------------------------------------------------------------------------
+// SAVE/LOAD STATE COMMANDS (ID_STATE_*)
+//------------------------------------------------------------------------------
+#define ID_STATE_SAVE                   32789
+#define ID_STATE_LOAD                   32790
+
+//------------------------------------------------------------------------------
+// PLACEHOLDER COMMANDS - RESERVED (32791-32799)
+//------------------------------------------------------------------------------
+// Commands 32791-32799 reserved for future use
 
 //------------------------------------------------------------------------------
 // DIALOG CONTROL IDS (IDC_*)
@@ -296,7 +338,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        315
-#define _APS_NEXT_COMMAND_VALUE         32785
+#define _APS_NEXT_COMMAND_VALUE         32789
 #define _APS_NEXT_CONTROL_VALUE         1007
 #define _APS_NEXT_SYMED_VALUE           315
 #endif
