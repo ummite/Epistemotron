@@ -42,6 +42,18 @@ public:
 	ScenarioType GetCurrentScenario() const { return m_currentScenario; }
 	CString GetScenarioName() const;
 
+// Camera preset management
+public:
+	void SaveCurrentPreset(LPCTSTR name);  // Save current camera as named preset
+	void LoadPreset(int index);             // Load preset by index
+	void LoadNextPreset();                  // Cycle to next preset
+	void LoadPrevPreset();                  // Cycle to previous preset
+	void ResetCamera();                    // Reset camera to default position
+	void ZoomToFitAll();                   // Zoom to fit all bodies in view
+	void FocusOnSelectedBody();            // Zoom and center on selected body
+	int GetPresetCount() const { return static_cast<int>(m_cameraPresets.size()); }
+	CString GetPresetName(int index) const;
+
 // Operations
 public:
 	void RefreshView();  // Trigger a view redraw
@@ -78,6 +90,7 @@ protected:
 	UINT_PTR m_timerId;
 	int m_stepsPerFrame;
 	int m_stepSizeSec;  // Time step in seconds
+	double m_speedMultiplier;  // Speed multiplier (0.1x to 10x)
 	IntegratorType m_integratorType;  // Integrator selection (now defined in pch.h via framework.h)
 
 	// Current scenario type
@@ -97,6 +110,27 @@ protected:
 	double m_rotationYaw;    // Rotation around Y-axis (left/right)
 	double m_rotationRoll;   // Rotation around Z-axis (tilt)
 
+	// Camera rotation lock
+	BOOL m_bRotationLocked;  // When TRUE, rotation controls are disabled
+
+	// Camera presets
+	struct CameraPreset
+	{
+		CString name;
+		double distance;
+		double fov;
+		double panX, panY;
+		double pitch, yaw, roll;
+
+		CameraPreset() : distance(0), fov(0), panX(0), panY(0), pitch(0), yaw(0), roll(0) {}
+		CameraPreset(const CString& pname, double pdist, double pfov, double ppanx, double ppany,
+		             double ppitch, double pyaw, double proll)
+			: name(pname), distance(pdist), fov(pfov), panX(ppanx), panY(ppany),
+			  pitch(ppitch), yaw(pyaw), roll(proll) {}
+	};
+	std::vector<CameraPreset> m_cameraPresets;
+	int m_selectedPresetIndex;  // Currently selected preset (-1 if none)
+
 	// Mouse tracking for pan and rotation
 	BOOL m_bDragging;
 	BOOL m_bRotating;
@@ -104,14 +138,44 @@ protected:
 	CPoint m_lastMousePos;
 
 	// Trail visualization
-	BOOL m_bShowTrails;  // Toggle for showing/hiding orbit trails
+	BOOL m_bShowTrails;       // Toggle for showing/hiding orbit trails
+	BOOL m_bShowTrailHistory; // Toggle for showing trail history (faded trails)
+
+	// Display filters
+	BOOL m_bShowSelectedOnly; // When TRUE, only show selected body
+	BOOL m_bShowMassLabels;   // When TRUE, show mass value near each body
+
+	// Grid/background
+	BOOL m_bShowGrid;      // Toggle for showing/hiding reference grid
+
+	// Body labels
+	BOOL m_bShowLabels;      // Toggle for showing/hiding body name labels
+	BOOL m_bShowVelocities;  // Toggle for showing/hiding velocity vectors
+	BOOL m_bShowCoM;         // Toggle for showing/hiding center of mass marker
 
 	// Collision control
 	BOOL m_bEnableCollisions;  // Toggle for collision detection
 	BOOL m_bPauseOnCollision;  // Pause simulation when collision occurs
+	BOOL m_bSlowMotionOnCollision;  // Slow down simulation near collisions
+
+	// Slow-motion collision settings
+	double m_slowMotionSpeed;         // Speed multiplier during slow motion (e.g., 0.1 = 10% speed)
+	double m_slowMotionOriginalSpeed; // Original speed to restore after slow motion
+	int m_slowMotionFrames;           // Number of frames to stay in slow motion after collision
+	int m_slowMotionFramesRemaining;  // Countdown for slow motion duration
 
 	// Help overlay
 	BOOL m_bShowHelp;    // Toggle for showing keyboard shortcuts help
+
+	// Minimap overview
+	BOOL m_bShowMinimap;  // Toggle for showing minimap overview panel
+
+	// Energy chart
+	BOOL m_bShowEnergyChart;    // Toggle for showing energy conservation chart
+	std::vector<double> m_energyHistory;  // History of total energy values
+	std::vector<double> m_kineticHistory; // History of kinetic energy values
+	std::vector<double> m_potentialHistory; // History of potential energy values
+	static constexpr int MAX_ENERGY_HISTORY = 500;  // Maximum history points
 
 	// Energy statistics reference (for drift calculation)
 	double m_initialTotalEnergy;      // Total energy at simulation start (joules)
@@ -160,6 +224,14 @@ protected:
 	CString m_recordPath;        // Output directory path
 	int m_recordFrameCount;      // Frame counter for sequential naming
 	CString m_recordPrefix;      // Prefix for output filenames
+
+	// Breakpoint control - pause at specific iteration
+	BOOL m_bBreakpointEnabled;   // TRUE if breakpoint is set
+	int m_breakpointIteration;   // Target iteration to pause at (-1 if not set)
+
+	// Time travel - jump to specific iteration
+	BOOL m_bTimeTravelEnabled;   // TRUE if time travel is active
+	int m_timeTravelTarget;      // Target iteration to jump to
 
 	// Timer handler
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
@@ -225,6 +297,7 @@ protected:
 	afx_msg void OnScenarioBinaryStar();
 	afx_msg void OnScenarioThreeBody();
 	afx_msg void OnScenarioGalaxy();
+	afx_msg void OnScenarioCustom();
 	afx_msg void OnScenarioNext();
 
 	// Recording command handlers
@@ -238,6 +311,9 @@ protected:
 	// Export command handlers
 	afx_msg void OnExportFrame();
 	afx_msg void OnExportSequence();
+
+	// Breakpoint control
+	afx_msg void OnSimulationBreakpoint();
 
 	DECLARE_MESSAGE_MAP()
 };

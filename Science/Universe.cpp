@@ -229,6 +229,21 @@ Universe::~Universe()
 {
 }
 
+// Custom scenario support
+void Universe::Clear()
+{
+	m_arrMasses.RemoveAll();
+	m_iIteration = 0;
+	m_totalCollisions = 0;
+	m_largestCollisionMass = 0.0;
+	m_lastCollisions.clear();
+}
+
+void Universe::AddBody(const Mass& body)
+{
+	m_arrMasses.Add(body);
+}
+
 // Helper function to initialize a Mass with orbital parameters
 static void InitializeMass(Mass& mass, double p_massKG, double p_x, double p_y, double p_z,
                           double p_vx, double p_vy, double p_vz)
@@ -455,8 +470,10 @@ void Universe::Randomize()
 }
 
 // Export universe visualization as PPM/BMP
-void Universe::ExportPPM(int p_iWidth, int p_iHeight)
+void Universe::ExportPPM(int p_iWidth, int p_iHeight, const wchar_t* p_path)
 {
+	// Use provided path or default
+	const wchar_t* outputPath = (p_path != nullptr && p_path[0] != '\0') ? p_path : PPMExportConstants::DefaultOutputPath;
 	if (static_cast<int>(m_arrMasses.GetSize()) < 1)
 	{
 		return;  // Nothing to export
@@ -517,7 +534,7 @@ void Universe::ExportPPM(int p_iWidth, int p_iHeight)
 		}
 	}
 
-	SaveBitmapToFile(buf.data(), p_iWidth, p_iHeight, 24, 0, PPMExportConstants::DefaultOutputPath);
+	SaveBitmapToFile(buf.data(), p_iWidth, p_iHeight, 24, 0, outputPath);
 }
 
 void Universe::SimulateFrom(const Universe& p_roUniverse, int p_iStepSize)

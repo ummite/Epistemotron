@@ -7,6 +7,8 @@
 //------------------------------------------------------------------------------
 #define IDD_ABOUTBOX                    100
 #define IDD_SIM_CONFIG_DLG              314   // Simulation configuration dialog
+#define IDD_CUSTOM_SCENARIO_DLG         315   // Custom scenario editor dialog
+#define IDD_BREAKPOINT_DLG              316   // Breakpoint dialog
 
 //------------------------------------------------------------------------------
 // MESSAGE/ERROR STRING RESOURCE IDs (IDP_, IDS_)
@@ -283,6 +285,7 @@
 #define ID_SIMULATION_SLOW_DOWN         32777
 #define ID_SIMULATION_STEP              32778
 #define ID_SIMULATION_CONFIG            32779
+#define ID_SIMULATION_BREAKPOINT        32780
 
 //------------------------------------------------------------------------------
 // SCENARIO SELECTION COMMANDS (ID_SCENARIO_*)
@@ -292,11 +295,12 @@
 #define ID_SCENARIO_THREE_BODY          32782
 #define ID_SCENARIO_GALAXY              32783
 #define ID_SCENARIO_NEXT                32784   // Cycle to next scenario
+#define ID_SCENARIO_CUSTOM              32785   // Custom scenario editor
 
 //------------------------------------------------------------------------------
-// PLACEHOLDER COMMANDS - RESERVED (32785-32786)
+// PLACEHOLDER COMMANDS - RESERVED (32786-32799)
 //------------------------------------------------------------------------------
-// Commands 32785-32786 reserved for additional scenarios
+// Commands 32786-32799 reserved for future use
 
 //------------------------------------------------------------------------------
 // RECORDING COMMANDS (ID_RECORDING_*)
@@ -333,8 +337,53 @@
 #define IDC_EDIT_DESCRIPTION            1005
 #define IDC_BTN_RANDOMIZE               1006
 
+// Custom scenario editor dialog controls
+#define IDC_EDIT_SCENARIO_NAME          1007
+#define IDC_LIST_BODY_LIST              1008
+#define IDC_EDIT_BODY_NAME              1009
+#define IDC_EDIT_BODY_MASS              1010
+#define IDC_EDIT_BODY_X                 1011
+#define IDC_EDIT_BODY_Y                 1012
+#define IDC_EDIT_BODY_Z                 1013
+#define IDC_EDIT_BODY_VX                1014
+#define IDC_EDIT_BODY_VY                1015
+#define IDC_EDIT_BODY_VZ                1016
+#define IDC_BTN_ADD_BODY                1017
+#define IDC_BTN_REMOVE_BODY             1018
+#define IDC_BTN_CLEAR_ALL               1019
+#define IDC_BTN_LOAD_CURRENT            1020
+#define IDC_BTN_EDIT_BODY               1021
+#define IDC_BTN_SAVE_SCENARIO           1022
+#define IDC_BTN_LOAD_SCENARIO           1023
+
+// Breakpoint dialog controls
+#define IDC_EDIT_BREAKPOINT_CURRENT     1024
+#define IDC_EDIT_BREAKPOINT_TARGET      1025
+
 //------------------------------------------------------------------------------
-// PLACEHOLDER CONTROL IDS - RESERVED (1007-1099)
+// DIALOG STATIC TEXT IDS (for LTEXT controls in dialogs)
+//------------------------------------------------------------------------------
+#define IDC_STATIC_SIM_TITLE            57642
+#define IDC_STATIC_NUM_BODIES           57643
+#define IDC_STATIC_STEP_SIZE            57644
+#define IDC_STATIC_STEPS_PER_FRAME      57645
+#define IDC_STATIC_DESCRIPTION          57646
+#define IDC_STATIC_RANDOM_SECTION       57647
+#define IDC_STATIC_RANDOM_RADIUS        57648
+
+// Custom scenario editor static text IDs
+#define IDC_STATIC_SCENARIO_NAME        57700
+#define IDC_STATIC_BODY_LIST            57701
+#define IDC_STATIC_BODY_PROPERTIES      57702
+#define IDC_STATIC_BODY_NAME            57703
+#define IDC_STATIC_BODY_MASS            57704
+#define IDC_STATIC_BODY_X               57705
+#define IDC_STATIC_BODY_Y               57706
+#define IDC_STATIC_BODY_VX              57707
+#define IDC_STATIC_BODY_VY              57708
+
+//------------------------------------------------------------------------------
+// PLACEHOLDER CONTROL IDS - RESERVED (1022-1099)
 //------------------------------------------------------------------------------
 // Control IDs 1007-1099 reserved for future dialog controls
 
@@ -343,9 +392,9 @@
 //------------------------------------------------------------------------------
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        315
-#define _APS_NEXT_COMMAND_VALUE         32789
-#define _APS_NEXT_CONTROL_VALUE         1007
-#define _APS_NEXT_SYMED_VALUE           315
+#define _APS_NEXT_RESOURCE_VALUE        317
+#define _APS_NEXT_COMMAND_VALUE         32790
+#define _APS_NEXT_CONTROL_VALUE         1026
+#define _APS_NEXT_SYMED_VALUE           317
 #endif
 #endif

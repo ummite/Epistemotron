@@ -139,63 +139,174 @@ void CClassView::FillClassView()
 	HTREEITEM hRoot = m_wndClassView.InsertItem(_T("Epistemotron classes"), 0, 0);
 	m_wndClassView.SetItemState(hRoot, TVIS_BOLD, TVIS_BOLD);
 
-	// Application class
-	HTREEITEM hClass = m_wndClassView.InsertItem(_T("CEpistemotronApp"), 1, 1, hRoot);
+	// ============================================================================
+	// Application Classes
+	// ============================================================================
+	HTREEITEM hAppSection = m_wndClassView.InsertItem(_T("Application"), 0, 0, hRoot);
+
+	HTREEITEM hClass = m_wndClassView.InsertItem(_T("CEpistemotronApp"), 1, 1, hAppSection);
 	m_wndClassView.InsertItem(_T("CEpistemotronApp()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("~CEpistemotronApp()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("InitInstance()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("ExitInstance()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnFileNew()"), 3, 3, hClass);
 
-	// Document class
-	hClass = m_wndClassView.InsertItem(_T("CEpistemotronDoc"), 1, 1, hRoot);
+	hClass = m_wndClassView.InsertItem(_T("CEpistemotronDoc"), 1, 1, hAppSection);
 	m_wndClassView.InsertItem(_T("CEpistemotronDoc()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("~CEpistemotronDoc()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("OnNewDocument()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("Serialize()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnDrawThumbnail()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("m_pCurrentUniverse"), 6, 6, hClass);
 
-	// View class
-	hClass = m_wndClassView.InsertItem(_T("CEpistemotronView"), 1, 1, hRoot);
+	hClass = m_wndClassView.InsertItem(_T("CEpistemotronView"), 1, 1, hAppSection);
 	m_wndClassView.InsertItem(_T("CEpistemotronView()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("~CEpistemotronView()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("OnDraw()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("StartSimulation()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("PauseSimulation()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("ResumeSimulation()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("StopSimulation()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("ResetSimulation()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("StepSimulation()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("RenderUniverse3D()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("DrawUIOverlay()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadScenarioSolarSystem()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadScenarioBinaryStar()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadScenarioThreeBody()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadScenarioGalaxy()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnExportFrame()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnExportSequence()"), 3, 3, hClass);
 
-	// Frame classes
-	hClass = m_wndClassView.InsertItem(_T("CMainFrame"), 1, 1, hRoot);
+	// ============================================================================
+	// Frame Classes
+	// ============================================================================
+	HTREEITEM hFrameSection = m_wndClassView.InsertItem(_T("Frame Windows"), 0, 0, hRoot);
+
+	hClass = m_wndClassView.InsertItem(_T("CMainFrame"), 1, 1, hFrameSection);
 	m_wndClassView.InsertItem(_T("CMainFrame()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("~CMainFrame()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnCreate()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("m_wndMenuBar"), 6, 6, hClass);
 	m_wndClassView.InsertItem(_T("m_wndToolBar"), 6, 6, hClass);
 	m_wndClassView.InsertItem(_T("m_wndStatusBar"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_wndFileView"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_wndClassView"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_wndOutput"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_wndProperties"), 6, 6, hClass);
 
-	hClass = m_wndClassView.InsertItem(_T("CChildFrame"), 1, 1, hRoot);
+	hClass = m_wndClassView.InsertItem(_T("CChildFrame"), 1, 1, hFrameSection);
 	m_wndClassView.InsertItem(_T("CChildFrame()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("~CChildFrame()"), 3, 3, hClass);
 
-	// Science module classes
-	hClass = m_wndClassView.InsertItem(_T("Mass"), 1, 1, hRoot);
+	// ============================================================================
+	// Dockable Pane Classes
+	// ============================================================================
+	HTREEITEM hPaneSection = m_wndClassView.InsertItem(_T("Dockable Panes"), 0, 0, hRoot);
+
+	hClass = m_wndClassView.InsertItem(_T("CFileView"), 1, 1, hPaneSection);
+	m_wndClassView.InsertItem(_T("CFileView()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("FillFileView()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("m_wndFileView"), 6, 6, hClass);
+
+	hClass = m_wndClassView.InsertItem(_T("CClassView"), 1, 1, hPaneSection);
+	m_wndClassView.InsertItem(_T("CClassView()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("FillClassView()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("m_wndClassView"), 6, 6, hClass);
+
+	hClass = m_wndClassView.InsertItem(_T("COutputWnd"), 1, 1, hPaneSection);
+	m_wndClassView.InsertItem(_T("COutputWnd()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("AddMessage()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("ClearAll()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnEditCopy()"), 3, 3, hClass);
+
+	hClass = m_wndClassView.InsertItem(_T("CPropertiesWnd"), 1, 1, hPaneSection);
+	m_wndClassView.InsertItem(_T("CPropertiesWnd()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnInitialUpdate()"), 3, 3, hClass);
+
+	// ============================================================================
+	// Dialog Classes
+	// ============================================================================
+	HTREEITEM hDialogSection = m_wndClassView.InsertItem(_T("Dialogs"), 0, 0, hRoot);
+
+	hClass = m_wndClassView.InsertItem(_T("CSimConfigDlg"), 1, 1, hDialogSection);
+	m_wndClassView.InsertItem(_T("CSimConfigDlg()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("DoDataExchange()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetConfig()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("OnBnClickedBtnRandomize()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("m_numBodies"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_stepSizeSec"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_stepsPerFrame"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_useRandomPositions"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_randomRadiusKm"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_description"), 6, 6, hClass);
+
+	// ============================================================================
+	// Science Module Classes
+	// ============================================================================
+	HTREEITEM hScienceSection = m_wndClassView.InsertItem(_T("Science Module"), 0, 0, hRoot);
+
+	hClass = m_wndClassView.InsertItem(_T("Mass"), 1, 1, hScienceSection);
 	m_wndClassView.InsertItem(_T("Mass()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("Randomize()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("Distance()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("EffectuerPasChangementPosition()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("EffectuerPasChangementVitesse()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetPhysicalRadiusKM()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("IsCollidingWith()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetKineticEnergy()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetLinearMomentum()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetAngularMomentum()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("RecordTrailPosition()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("ClearTrail()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("m_X, m_Y, m_Z"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_VitesseX, m_VitesseY, m_VitesseZ"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_MasseKG"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_trail"), 6, 6, hClass);
 
-	hClass = m_wndClassView.InsertItem(_T("Universe"), 1, 1, hRoot);
+	hClass = m_wndClassView.InsertItem(_T("Universe"), 1, 1, hScienceSection);
 	m_wndClassView.InsertItem(_T("Universe()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("Randomize()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("GenerateSimulationStep()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("SimulateFrom()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("SimulateFromVelocityVerlet()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("ProcessCollisionsSimple()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("ExportPPM()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadSolarSystem()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadBinaryStar()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadThreeBody()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("LoadGalaxy()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetTotalEnergy()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetTotalLinearMomentum()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetTotalAngularMomentum()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("GetTotalCollisions()"), 3, 3, hClass);
+	m_wndClassView.InsertItem(_T("m_arrMasses"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_iIteration"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("m_totalCollisions"), 6, 6, hClass);
 
-	hClass = m_wndClassView.InsertItem(_T("Simulator"), 1, 1, hRoot);
+	hClass = m_wndClassView.InsertItem(_T("Simulator"), 1, 1, hScienceSection);
 	m_wndClassView.InsertItem(_T("Simulator()"), 3, 3, hClass);
 	m_wndClassView.InsertItem(_T("Test()"), 3, 3, hClass);
 
-	// Globals
-	hClass = m_wndClassView.InsertItem(_T("Globals"), 2, 2, hRoot);
-	m_wndClassView.InsertItem(_T("theApp"), 5, 5, hClass);
-	m_wndClassView.Expand(hClass, TVE_EXPAND);
+	hClass = m_wndClassView.InsertItem(_T("TrailPoint"), 1, 1, hScienceSection);
+	m_wndClassView.InsertItem(_T("x"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("y"), 6, 6, hClass);
+	m_wndClassView.InsertItem(_T("z"), 6, 6, hClass);
 
+	// ============================================================================
+	// Globals
+	// ============================================================================
+	HTREEITEM hGlobals = m_wndClassView.InsertItem(_T("Globals"), 2, 2, hRoot);
+	m_wndClassView.InsertItem(_T("theApp"), 5, 5, hGlobals);
+
+	// Expand all sections
 	m_wndClassView.Expand(hRoot, TVE_EXPAND);
+	m_wndClassView.Expand(hAppSection, TVE_EXPAND);
+	m_wndClassView.Expand(hFrameSection, TVE_EXPAND);
+	m_wndClassView.Expand(hPaneSection, TVE_EXPAND);
+	m_wndClassView.Expand(hDialogSection, TVE_EXPAND);
+	m_wndClassView.Expand(hScienceSection, TVE_EXPAND);
+	m_wndClassView.Expand(hGlobals, TVE_EXPAND);
 }
 
 void CClassView::OnContextMenu(CWnd* pWnd, CPoint point)

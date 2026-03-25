@@ -30,7 +30,15 @@ public:
 	Mass& GetAt(int p_iPos) { return m_arrMasses.GetAt(p_iPos); }
 	const Mass& GetAt(int p_iPos) const { return m_arrMasses.GetAt(p_iPos); }
 	int GetMassCount() const { return static_cast<int>(m_arrMasses.GetSize()); }
-	void ExportPPM(int p_iWidth = 800, int p_iHeight = 600);
+
+	// Custom scenario support
+	void Clear();  // Clear all bodies
+	void AddBody(const Mass& body);  // Add a body to the universe
+	/// Export universe visualization as BMP file
+	/// @param p_iWidth Image width in pixels (default: 800)
+	/// @param p_iHeight Image height in pixels (default: 600)
+	/// @param p_path Output file path (default: L"c:\\temp\\t.bmp")
+	void ExportPPM(int p_iWidth = 800, int p_iHeight = 600, const wchar_t* p_path = nullptr);
 
 	// Optimized symplectic Euler integration for better energy conservation
 	void SimulateFrom(const Universe& p_roUniverse, int p_iStepSize);

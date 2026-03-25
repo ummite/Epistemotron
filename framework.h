@@ -40,7 +40,7 @@
 
 // Simulation enums (placed here in framework.h to ensure visibility in PCH)
 enum class SimulationState { Stopped, Running, Paused };
-enum class ScenarioType { SolarSystem, BinaryStar, ThreeBody, Galaxy };
+enum class ScenarioType { SolarSystem, BinaryStar, ThreeBody, Galaxy, Custom };
 enum class IntegratorType { SymplecticEuler, VelocityVerlet };
 
 // Visual Styles manifest for Common Controls v6

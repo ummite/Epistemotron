@@ -91,37 +91,100 @@ void CFileView::OnSize(UINT /*nType*/, int /*cx*/, int /*cy*/)
 
 void CFileView::FillFileView()
 {
-	HTREEITEM hRoot = m_wndFileView.InsertItem(_T("FakeApp files"), 0, 0);
+	HTREEITEM hRoot = m_wndFileView.InsertItem(_T("Epistemotron files"), 0, 0);
 	m_wndFileView.SetItemState(hRoot, TVIS_BOLD, TVIS_STATEIMAGEMASK);
 
-	HTREEITEM hSrc = m_wndFileView.InsertItem(_T("FakeApp Source Files"), 0, 0, hRoot);
+	// ============================================================================
+	// Source Files
+	// ============================================================================
+	HTREEITEM hSrc = m_wndFileView.InsertItem(_T("Source Files"), 0, 0, hRoot);
 
-	m_wndFileView.InsertItem(_T("FakeApp.cpp"), 1, 1, hSrc);
-	m_wndFileView.InsertItem(_T("FakeApp.rc"), 1, 1, hSrc);
-	m_wndFileView.InsertItem(_T("FakeAppDoc.cpp"), 1, 1, hSrc);
-	m_wndFileView.InsertItem(_T("FakeAppView.cpp"), 1, 1, hSrc);
+	// Main application source files
+	m_wndFileView.InsertItem(_T("Epistemotron.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("EpistemotronDoc.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("EpistemotronView.cpp"), 1, 1, hSrc);
 	m_wndFileView.InsertItem(_T("MainFrm.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("ChildFrm.cpp"), 1, 1, hSrc);
 	m_wndFileView.InsertItem(_T("pch.cpp"), 1, 1, hSrc);
 
-	HTREEITEM hInc = m_wndFileView.InsertItem(_T("FakeApp Header Files"), 0, 0, hRoot);
+	// Dockable pane source files
+	m_wndFileView.InsertItem(_T("FileView.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("ClassView.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("OutputWnd.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("PropertiesWnd.cpp"), 1, 1, hSrc);
 
-	m_wndFileView.InsertItem(_T("FakeApp.h"), 2, 2, hInc);
-	m_wndFileView.InsertItem(_T("FakeAppDoc.h"), 2, 2, hInc);
-	m_wndFileView.InsertItem(_T("FakeAppView.h"), 2, 2, hInc);
-	m_wndFileView.InsertItem(_T("Resource.h"), 2, 2, hInc);
+	// Dialog source files
+	m_wndFileView.InsertItem(_T("SimConfigDlg.cpp"), 1, 1, hSrc);
+
+	// Science module source files
+	m_wndFileView.InsertItem(_T("Science\\Mass.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("Science\\Universe.cpp"), 1, 1, hSrc);
+	m_wndFileView.InsertItem(_T("Science\\Simulator.cpp"), 1, 1, hSrc);
+
+	// ============================================================================
+	// Header Files
+	// ============================================================================
+	HTREEITEM hInc = m_wndFileView.InsertItem(_T("Header Files"), 0, 0, hRoot);
+
+	// Main application header files
+	m_wndFileView.InsertItem(_T("Epistemotron.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("EpistemotronDoc.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("EpistemotronView.h"), 2, 2, hInc);
 	m_wndFileView.InsertItem(_T("MainFrm.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("ChildFrm.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("framework.h"), 2, 2, hInc);
 	m_wndFileView.InsertItem(_T("pch.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("Resource.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("targetver.h"), 2, 2, hInc);
 
-	HTREEITEM hRes = m_wndFileView.InsertItem(_T("FakeApp Resource Files"), 0, 0, hRoot);
+	// Dockable pane header files
+	m_wndFileView.InsertItem(_T("FileView.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("ClassView.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("OutputWnd.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("PropertiesWnd.h"), 2, 2, hInc);
 
-	m_wndFileView.InsertItem(_T("FakeApp.ico"), 2, 2, hRes);
-	m_wndFileView.InsertItem(_T("FakeApp.rc2"), 2, 2, hRes);
-	m_wndFileView.InsertItem(_T("FakeAppDoc.ico"), 2, 2, hRes);
-	m_wndFileView.InsertItem(_T("FakeToolbar.bmp"), 2, 2, hRes);
+	// Dialog header files
+	m_wndFileView.InsertItem(_T("SimConfigDlg.h"), 2, 2, hInc);
 
+	// Science module header files
+	m_wndFileView.InsertItem(_T("Science\\Mass.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("Science\\Universe.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("Science\\Simulator.h"), 2, 2, hInc);
+	m_wndFileView.InsertItem(_T("Science\\Environment.h"), 2, 2, hInc);
+
+	// ============================================================================
+	// Resource Files
+	// ============================================================================
+	HTREEITEM hRes = m_wndFileView.InsertItem(_T("Resource Files"), 0, 0, hRoot);
+
+	m_wndFileView.InsertItem(_T("Epistemotron.rc"), 3, 3, hRes);
+	m_wndFileView.InsertItem(_T("Epistemotron.rc2"), 3, 3, hRes);
+
+	// ============================================================================
+	// Documentation Files
+	// ============================================================================
+	HTREEITEM hDoc = m_wndFileView.InsertItem(_T("Documentation Files"), 0, 0, hRoot);
+
+	m_wndFileView.InsertItem(_T("CLAUDE.md"), 4, 4, hDoc);
+	m_wndFileView.InsertItem(_T("IMPROVEMENTS.md"), 4, 4, hDoc);
+	m_wndFileView.InsertItem(_T("TODO.md"), 4, 4, hDoc);
+
+	// ============================================================================
+	// Build Files
+	// ============================================================================
+	HTREEITEM hBuild = m_wndFileView.InsertItem(_T("Build Files"), 0, 0, hRoot);
+
+	m_wndFileView.InsertItem(_T("CMakeLists.txt"), 5, 5, hBuild);
+	m_wndFileView.InsertItem(_T("Epistemotron.sln"), 5, 5, hBuild);
+	m_wndFileView.InsertItem(_T("Epistemotron.vcxproj"), 5, 5, hBuild);
+
+	// Expand all nodes
 	m_wndFileView.Expand(hRoot, TVE_EXPAND);
 	m_wndFileView.Expand(hSrc, TVE_EXPAND);
 	m_wndFileView.Expand(hInc, TVE_EXPAND);
+	m_wndFileView.Expand(hRes, TVE_EXPAND);
+	m_wndFileView.Expand(hDoc, TVE_EXPAND);
+	m_wndFileView.Expand(hBuild, TVE_EXPAND);
 }
 
 void CFileView::OnContextMenu(CWnd* pWnd, CPoint point)

@@ -42,6 +42,7 @@ BEGIN
         MENUITEM "&Step", ID_SIMULATION_STEP
         MENUITEM SEPARATOR
         MENUITEM "&Configuration...", ID_SIMULATION_CONFIG
+        MENUITEM "B&reakpoint...", ID_SIMULATION_BREAKPOINT
         MENUITEM SEPARATOR
         MENUITEM "S&tart Recording", ID_RECORDING_START
         MENUITEM "&Stop Recording", ID_RECORDING_STOP
@@ -59,6 +60,8 @@ BEGIN
         MENUITEM "&Binary Star", ID_SCENARIO_BINARY_STAR
         MENUITEM "&Three-Body", ID_SCENARIO_THREE_BODY
         MENUITEM "&Galaxy", ID_SCENARIO_GALAXY
+        MENUITEM SEPARATOR
+        MENUITEM "&Custom Scenario...", ID_SCENARIO_CUSTOM
         MENUITEM SEPARATOR
         MENUITEM "&Next Scenario", ID_SCENARIO_NEXT
     END
@@ -294,6 +297,93 @@ BEGIN
     LTEXT           "Gravitational N-Body Simulation",57640,42,40,150,8
     LTEXT           "Version 1.0",57641,42,58,150,8
     DEFPUSHBUTTON   "OK",IDOK,156,18,50,14
+END
+
+//------------------------------------------------------------------------------
+// SIMULATION CONFIGURATION DIALOG
+//------------------------------------------------------------------------------
+IDD_SIM_CONFIG_DLG DIALOGEX 0, 0, 340, 240
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "Simulation Configuration"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "Simulation Parameters",57642,10,10,140,8
+    LTEXT           "Number of Bodies:",57643,10,35,80,8
+    EDITTEXT        IDC_EDIT_NUM_BODIES,95,30,50,12,ES_NUMBER | WS_BORDER
+    LTEXT           "Step Size (seconds):",57644,10,55,80,8
+    EDITTEXT        IDC_EDIT_STEP_SIZE,95,50,50,12,ES_NUMBER | WS_BORDER
+    LTEXT           "Steps per Frame:",57645,10,75,80,8
+    EDITTEXT        IDC_EDIT_STEPS_PER_FRAME,95,70,50,12,ES_NUMBER | WS_BORDER
+    LTEXT           "Description:",57646,10,100,50,8
+    EDITTEXT        IDC_EDIT_DESCRIPTION,65,95,260,12,ES_AUTOHSCROLL | WS_BORDER
+    LTEXT           "Random Positioning",57647,10,125,80,8
+    CHECKBOX        "Use Random Positions",IDC_CHECK_RANDOM,10,130,100,10,BS_AUTOCHECKBOX
+    LTEXT           "Random Radius (km):",57648,10,150,80,8
+    EDITTEXT        IDC_EDIT_RANDOM_RADIUS,95,145,60,12,ES_NUMBER | WS_BORDER
+    PUSHBUTTON      "Randomize Description",IDC_BTN_RANDOMIZE,200,145,110,14
+    DEFPUSHBUTTON   "OK",IDOK,220,210,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,275,210,50,14
+END
+
+//------------------------------------------------------------------------------
+// CUSTOM SCENARIO EDITOR DIALOG
+//------------------------------------------------------------------------------
+IDD_CUSTOM_SCENARIO_DLG DIALOGEX 0, 0, 600, 480
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "Custom Scenario Editor"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "Scenario Name:",57700,10,10,60,8
+    EDITTEXT        IDC_EDIT_SCENARIO_NAME,70,5,200,14,ES_AUTOHSCROLL | WS_BORDER
+    LTEXT           "Body List:",57701,10,35,40,8
+    LTEXT           "Name",57709,10,50,40,8
+    LTEXT           "Mass",57710,100,50,40,8
+    LTEXT           "X",57711,200,50,20,8
+    LTEXT           "Y",57712,230,50,20,8
+    LTEXT           "VX",57713,260,50,20,8
+    LTEXT           "VY",57714,310,50,20,8
+    LISTBOX         IDC_LIST_BODY_LIST,10,70,580,220,LBS_SORT | LBS_HASSTRINGS | WS_VSCROLL | WS_BORDER
+    LTEXT           "Body Properties:",57702,10,310,60,8
+    LTEXT           "Name:",57703,320,315,30,8
+    EDITTEXT        IDC_EDIT_BODY_NAME,360,310,80,14,ES_AUTOHSCROLL | WS_BORDER
+    LTEXT           "Mass (kg):",57704,320,335,40,8
+    EDITTEXT        IDC_EDIT_BODY_MASS,360,330,80,14,ES_NUMBER | WS_BORDER
+    LTEXT           "X (km):",57705,450,315,30,8
+    EDITTEXT        IDC_EDIT_BODY_X,490,310,60,14,ES_NUMBER | WS_BORDER
+    LTEXT           "Y (km):",57706,450,335,30,8
+    EDITTEXT        IDC_EDIT_BODY_Y,490,330,60,14,ES_NUMBER | WS_BORDER
+    LTEXT           "VX (m/s):",57707,320,355,40,8
+    EDITTEXT        IDC_EDIT_BODY_VX,360,350,80,14,ES_NUMBER | WS_BORDER
+    LTEXT           "VY (m/s):",57708,450,355,40,8
+    EDITTEXT        IDC_EDIT_BODY_VY,490,350,60,14,ES_NUMBER | WS_BORDER
+    PUSHBUTTON      "Add Body",IDC_BTN_ADD_BODY,10,310,60,20
+    PUSHBUTTON      "Remove",IDC_BTN_REMOVE_BODY,75,310,60,20
+    PUSHBUTTON      "Clear All",IDC_BTN_CLEAR_ALL,140,310,60,20
+    PUSHBUTTON      "Load Current",IDC_BTN_LOAD_CURRENT,210,310,80,20
+    PUSHBUTTON      "Edit Selected",IDC_BTN_EDIT_BODY,10,335,60,20
+    PUSHBUTTON      "Save...",IDC_BTN_SAVE_SCENARIO,75,335,60,20
+    PUSHBUTTON      "Load...",IDC_BTN_LOAD_SCENARIO,140,335,60,20
+    DEFPUSHBUTTON   "OK",IDOK,530,410,50,20
+    PUSHBUTTON      "Cancel",IDCANCEL,580,410,50,20
+END
+
+//------------------------------------------------------------------------------
+// BREAKPOINT DIALOG
+//------------------------------------------------------------------------------
+IDD_BREAKPOINT_DLG DIALOGEX 0, 0, 300, 100
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "Set Breakpoint"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "Current iteration:",57720,10,20,80,8
+    EDITTEXT        IDC_EDIT_BREAKPOINT_CURRENT,95,16,60,14,ES_READONLY | WS_BORDER
+    LTEXT           "Target iteration:",57721,10,45,80,8
+    EDITTEXT        IDC_EDIT_BREAKPOINT_TARGET,95,41,60,14,ES_NUMBER | WS_BORDER
+    DEFPUSHBUTTON   "OK",IDOK,220,15,50,20
+    PUSHBUTTON      "Cancel",IDCANCEL,220,45,50,20
 END
 
 //------------------------------------------------------------------------------

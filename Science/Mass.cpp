@@ -38,7 +38,8 @@ Mass::Mass()
       m_VitesseX(0.0),
       m_VitesseY(0.0),
       m_VitesseZ(0.0),
-      m_MasseKG(0.0)
+      m_MasseKG(0.0),
+      m_Name(_T(""))
 {
 }
 

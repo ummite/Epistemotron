@@ -23,6 +23,11 @@ option(BUILD_EXAMPLES "Build example programs" OFF)
 # Library
 # ============================================================================
 
+# NOTE: This CMake build uses Simulation/ which is the cross-platform C++17
+# implementation using std::string. The MFC application (Visual Studio project)
+# uses Science/ which is the MFC-specific implementation using CString.
+# These are separate implementations of the same physics simulation.
+
 add_library(epistemotron
     Simulation/Mass.cpp
     Simulation/Universe.cpp

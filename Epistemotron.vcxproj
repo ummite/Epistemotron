@@ -120,6 +120,8 @@
     <ClInclude Include="resource1.h" />
     <ClInclude Include="Science\Environment.h" />
     <ClInclude Include="SimConfigDlg.h" />
+    <ClInclude Include="CustomScenarioDlg.h" />
+    <ClInclude Include="BreakpointDlg.h" />
     <ClInclude Include="Science\Mass.h" />
     <ClInclude Include="Science\Simulator.h" />
     <ClInclude Include="Science\Universe.h" />
@@ -140,6 +142,8 @@
     </ClCompile>
     <ClCompile Include="PropertiesWnd.cpp" />
     <ClCompile Include="SimConfigDlg.cpp" />
+    <ClCompile Include="CustomScenarioDlg.cpp" />
+    <ClCompile Include="BreakpointDlg.cpp" />
     <ClCompile Include="Science\Mass.cpp" />
     <ClCompile Include="Science\Simulator.cpp" />
     <ClCompile Include="Science\Universe.cpp" />

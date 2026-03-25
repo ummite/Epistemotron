@@ -3,6 +3,8 @@
 
 #include "pch.h"
 #include "MainFrm.h"  // For CMainFrame forward reference
+#include "CustomScenarioDlg.h"  // For custom scenario editor dialog
+#include "BreakpointDlg.h"  // For breakpoint dialog
 
 // ============================================================================
 // Named Constants (eliminating magic numbers)
@@ -107,11 +109,13 @@ BEGIN_MESSAGE_MAP(CEpistemotronView, CView)
 	ON_COMMAND(ID_SIMULATION_SLOW_DOWN, &CEpistemotronView::OnSimulationSlowDown)
 	ON_COMMAND(ID_SIMULATION_STEP, &CEpistemotronView::OnSimulationStep)
 	ON_COMMAND(ID_SIMULATION_CONFIG, &CEpistemotronView::OnSimulationConfig)
+	ON_COMMAND(ID_SIMULATION_BREAKPOINT, &CEpistemotronView::OnSimulationBreakpoint)
 	// Scenario selection commands
 	ON_COMMAND(ID_SCENARIO_SOLAR_SYSTEM, &CEpistemotronView::OnScenarioSolarSystem)
 	ON_COMMAND(ID_SCENARIO_BINARY_STAR, &CEpistemotronView::OnScenarioBinaryStar)
 	ON_COMMAND(ID_SCENARIO_THREE_BODY, &CEpistemotronView::OnScenarioThreeBody)
 	ON_COMMAND(ID_SCENARIO_GALAXY, &CEpistemotronView::OnScenarioGalaxy)
+	ON_COMMAND(ID_SCENARIO_CUSTOM, &CEpistemotronView::OnScenarioCustom)
 	ON_COMMAND(ID_SCENARIO_NEXT, &CEpistemotronView::OnScenarioNext)
 	// Recording commands
 	ON_COMMAND(ID_RECORDING_START, &CEpistemotronView::OnRecordingStart)
@@ -133,6 +137,7 @@ CEpistemotronView::CEpistemotronView() noexcept
 	, m_timerId(0)
 	, m_stepsPerFrame(1)
 	, m_stepSizeSec(DEFAULT_STEP_SIZE_SEC)
+	, m_speedMultiplier(1.0)  // Default 1x speed
 	, m_cameraDistance(DEFAULT_CAMERA_DISTANCE_KM)
 	, m_fieldOfView(DEFAULT_FIELD_OF_VIEW_KM)
 	, m_massScaleFactor(DEFAULT_MASS_SCALE_FACTOR)
@@ -141,14 +146,34 @@ CEpistemotronView::CEpistemotronView() noexcept
 	, m_rotationPitch(0.0)
 	, m_rotationYaw(0.0)
 	, m_rotationRoll(0.0)
+	, m_bRotationLocked(FALSE)  // Rotation unlocked by default
 	, m_bDragging(FALSE)
 	, m_bRotating(FALSE)
 	, m_bRolling(FALSE)
 	, m_bShowTrails(TRUE)
+	, m_bShowTrailHistory(FALSE) // Trail history off by default
+	, m_bShowGrid(FALSE)         // Grid off by default
+	, m_bShowSelectedOnly(FALSE)  // Show all bodies by default
+	, m_bShowMassLabels(FALSE)  // Mass labels off by default
+	, m_bShowLabels(FALSE)      // Labels off by default
+	, m_bShowVelocities(FALSE)   // Velocity vectors off by default
+	, m_bShowCoM(FALSE)          // Center of mass marker off by default
 	, m_bEnableCollisions(TRUE)
 	, m_bPauseOnCollision(FALSE)
+	, m_bSlowMotionOnCollision(FALSE)  // Slow motion off by default
+	, m_slowMotionSpeed(0.1)         // 10% speed during slow motion
+	, m_slowMotionOriginalSpeed(1.0) // Default original speed
+	, m_slowMotionFrames(60)         // 60 frames = ~6 seconds at 10 FPS
+	, m_slowMotionFramesRemaining(0) // Not in slow motion
 	, m_bShowHelp(FALSE)
+	, m_bShowMinimap(FALSE)
+	, m_bShowEnergyChart(FALSE)
+	, m_energyHistory()
+	, m_kineticHistory()
+	, m_potentialHistory()
 	, m_integratorType(IntegratorType::SymplecticEuler)
+	, m_selectedPresetIndex(-1)
+	, m_cameraPresets()
 	, m_lastFrameTime(0)
 	, m_frameCount(0)
 	, m_currentFps(0.0)
@@ -167,6 +192,8 @@ CEpistemotronView::CEpistemotronView() noexcept
 	, m_bRecording(FALSE)
 	, m_collisionFlashes()
 	, m_recordFrameCount(0)
+	, m_bBreakpointEnabled(FALSE)
+	, m_breakpointIteration(-1)
 {
 }
 
@@ -412,6 +439,44 @@ void CEpistemotronView::OnDraw(CDC* pDC)
 	// Draw background (space - dark blue/black)
 	m_memDC.FillSolidRect(&rcClient, COLOR_SPACE_BG);
 
+	// Draw reference grid if enabled
+	if (m_bShowGrid)
+	{
+		const int GRID_SPACING = 100;  // Grid lines every 100 pixels
+		const int GRID_MARGIN = 20;    // Margin from edge
+		CPen gridPen(PS_SOLID, 1, RGB(30, 30, 60));  // Dark blue grid
+		CPen* oldGridPen = &m_memDC.SelectObject(&gridPen);
+
+		int left = GRID_MARGIN;
+		int top = GRID_MARGIN;
+		int right = rcClient.Width() - GRID_MARGIN;
+		int bottom = rcClient.Height() - GRID_MARGIN;
+
+		// Draw vertical lines
+		for (int x = left; x <= right; x += GRID_SPACING)
+		{
+			m_memDC.MoveTo(x, top);
+			m_memDC.LineTo(x, bottom);
+		}
+
+		// Draw horizontal lines
+		for (int y = top; y <= bottom; y += GRID_SPACING)
+		{
+			m_memDC.MoveTo(left, y);
+			m_memDC.LineTo(right, y);
+		}
+
+		// Draw border box
+		m_memDC.MoveTo(left, top);
+		m_memDC.LineTo(right, top);
+		m_memDC.LineTo(right, bottom);
+		m_memDC.LineTo(left, bottom);
+		m_memDC.LineTo(left, top);
+
+		m_memDC.SelectObject(oldGridPen);
+		gridPen.DeleteObject();
+	}
+
 	// Get the current universe from the document
 	Universe* pUniverse = pDoc->m_pCurrentUniverse;
 	if (!pUniverse)
@@ -585,6 +650,12 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 
 	for (const auto& info : masses)
 	{
+		// Skip non-selected bodies if "show selected only" is enabled
+		if (m_bShowSelectedOnly && info.index != m_selectedBodyIndex)
+		{
+			continue;
+		}
+
 		CRect ellipse(
 			info.screenX - info.radius,
 			info.screenY - info.radius,
@@ -636,6 +707,152 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 			pDC->SelectObject(oldSelPen);
 			selectionPen.DeleteObject();
 		}
+
+		// Draw body label if enabled
+		if (m_bShowLabels)
+		{
+			CString label = info.mass->m_Name;
+			if (label.IsEmpty())
+			{
+				// Auto-generate name based on mass
+				if (info.mass->m_MasseKG >= STAR_MASS_THRESHOLD)
+					label = _T("Star");
+				else if (info.mass->m_MasseKG >= PLANET_MASS_THRESHOLD)
+					label = _T("Planet");
+				else
+					label = _T("Body");
+			}
+
+			// Draw label above the body with black outline for visibility
+			CRect labelRect;
+			pDC->GetTextExtent(label, labelRect);
+			int labelX = info.screenX - labelRect.Width() / 2;
+			int labelY = info.screenY - info.radius - 15;  // 15 pixels above the body
+
+			// Draw black background for better visibility
+			CRect bgRect(labelX - 2, labelY - 8, labelX + labelRect.Width() + 4, labelY + labelRect.Height());
+			CBrush bgBrush(RGB(0, 0, 0));
+			CBrush* oldBgBrush = pDC->SelectObject(&bgBrush);
+			CPen nullPen(PS_NULL, 0, RGB(0, 0, 0));
+			CPen* oldBgPen = pDC->SelectObject(&nullPen);
+			pDC->Rectangle(&bgRect);
+			pDC->SelectObject(oldBgPen);
+			pDC->SelectObject(oldBgBrush);
+
+			// Draw white text
+			COLORREF oldColor = pDC->SetTextColor(RGB(255, 255, 255));
+			pDC->SetBkColor(RGB(0, 0, 0));
+			pDC->SetTextAlign(TA_CENTER | TA_TOP);
+			pDC->TextOut(labelX + labelRect.Width() / 2, labelY, label);
+			pDC->SetTextAlign(TA_LEFT | TA_TOP);
+			pDC->SetTextColor(oldColor);
+		}
+
+		// Draw mass label if enabled
+		if (m_bShowMassLabels)
+		{
+			CString massLabel;
+			double mass = info.mass->m_MasseKG;
+
+			// Format mass in scientific notation
+			if (mass >= 1e30)
+				massLabel.Format(_T("%.1f M☉"), mass / 1.989e30);  // Solar masses
+			else if (mass >= 1e24)
+				massLabel.Format(_T("%.1f M⊕"), mass / 5.972e24);  // Earth masses
+			else
+				massLabel.Format(_T("%.1e kg"), mass);
+
+			// Draw mass label below the body
+			CRect massRect;
+			pDC->GetTextExtent(massLabel, massRect);
+			int massX = info.screenX - massRect.Width() / 2;
+			int massY = info.screenY + info.radius + 5;  // 5 pixels below the body
+
+			// Draw black background for better visibility
+			CRect massBgRect(massX - 2, massY - 2, massX + massRect.Width() + 4, massY + massRect.Height() + 2);
+			CBrush massBgBrush(RGB(0, 0, 0));
+			CPen nullPen2(PS_NULL, 0, RGB(0, 0, 0));
+			CBrush* oldMassBgBrush = pDC->SelectObject(&massBgBrush);
+			CPen* oldMassBgPen = pDC->SelectObject(&nullPen2);
+			pDC->Rectangle(&massBgRect);
+			pDC->SelectObject(oldMassBgPen);
+			pDC->SelectObject(oldMassBgBrush);
+
+			// Draw yellow text for mass
+			COLORREF oldMassColor = pDC->SetTextColor(RGB(255, 255, 100));
+			pDC->SetBkColor(RGB(0, 0, 0));
+			pDC->SetTextAlign(TA_CENTER | TA_TOP);
+			pDC->TextOut(massX + massRect.Width() / 2, massY, massLabel);
+			pDC->SetTextAlign(TA_LEFT | TA_TOP);
+			pDC->SetTextColor(oldMassColor);
+		}
+
+		// Draw velocity vector if enabled
+		if (m_bShowVelocities)
+		{
+			// Calculate velocity magnitude and direction
+			double vx = info.mass->m_VitesseX;
+			double vy = info.mass->m_VitesseY;
+			double vz = info.mass->m_VitesseZ;
+			double speed = std::sqrt(vx * vx + vy * vy + vz * vz);
+
+			if (speed > 0)
+			{
+				// Scale velocity for display (adjust based on typical speeds)
+				// For solar system: ~30 km/s = 30000 m/s
+				// Scale: 1 pixel per 1000 m/s, capped at 50 pixels
+				const double VELOCITY_SCALE = 0.002;  // pixels per m/s
+				const int MAX_VELOCITY_LENGTH = 50;   // max arrow length in pixels
+				const int MIN_VELOCITY_LENGTH = 5;    // min arrow length in pixels
+
+				double arrowLength = speed * VELOCITY_SCALE;
+				if (arrowLength > MAX_VELOCITY_LENGTH)
+					arrowLength = MAX_VELOCITY_LENGTH;
+				if (arrowLength < MIN_VELOCITY_LENGTH)
+					arrowLength = MIN_VELOCITY_LENGTH;
+
+				// Calculate 2D direction (projected on screen)
+				double dirX = vx / speed;
+				double dirY = vy / speed;
+
+				// Arrow start and end points
+				int arrowStartX = info.screenX;
+				int arrowStartY = info.screenY;
+				int arrowEndX = info.screenX + static_cast<int>(dirX * arrowLength);
+				int arrowEndY = info.screenY - static_cast<int>(dirY * arrowLength);  // Y is inverted in screen coords
+
+				// Draw velocity arrow (orange for visibility)
+				CPen velPen(PS_SOLID, 2, RGB(255, 165, 0));  // Orange
+				CPen* oldVelPen = pDC->SelectObject(&velPen);
+
+				CPoint points[2] = {
+					CPoint(arrowStartX, arrowStartY),
+					CPoint(arrowEndX, arrowEndY)
+				};
+				pDC->Polyline(points, 2);
+
+				// Draw arrowhead
+				const int ARROWHEAD_SIZE = 6;
+				double angle = std::atan2(-dirY, dirX);  // Negative dirY for screen coords
+				double headAngle1 = angle + 0.5;  // ~30 degrees
+				double headAngle2 = angle - 0.5;
+
+				int head1X = arrowEndX + static_cast<int>(std::cos(headAngle1) * ARROWHEAD_SIZE);
+				int head1Y = arrowEndY - static_cast<int>(std::sin(headAngle1) * ARROWHEAD_SIZE);
+				int head2X = arrowEndX + static_cast<int>(std::cos(headAngle2) * ARROWHEAD_SIZE);
+				int head2Y = arrowEndY - static_cast<int>(std::sin(headAngle2) * ARROWHEAD_SIZE);
+
+				CPoint headPoints[3] = {
+					CPoint(arrowEndX, arrowEndY),
+					CPoint(head1X, head1Y),
+					CPoint(head2X, head2Y)
+				};
+				pDC->Polygon(headPoints, 3);
+
+				pDC->SelectObject(oldVelPen);
+				velPen.DeleteObject();
+			}
+		}
 	}
 
 	// Restore previous pen and cleanup
@@ -644,6 +861,94 @@ void CEpistemotronView::RenderUniverse3D(CDC* pDC, const Universe& universe, con
 	if (brushValid)
 	{
 		fillBrush.DeleteObject();
+	}
+
+	// Render center of mass marker if enabled
+	if (m_bShowCoM && universe.GetMassCount() > 0)
+	{
+		// Calculate center of mass
+		double totalMass = 0.0;
+		double comX = 0.0, comY = 0.0, comZ = 0.0;
+
+		for (int i = 0; i < universe.GetMassCount(); i++)
+		{
+			const Mass& m = universe.GetAt(i);
+			totalMass += m.m_MasseKG;
+			comX += m.m_MasseKG * m.m_X;
+			comY += m.m_MasseKG * m.m_Y;
+			comZ += m.m_MasseKG * m.m_Z;
+		}
+
+		if (totalMass > 0)
+		{
+			comX /= totalMass;
+			comY /= totalMass;
+			comZ /= totalMass;
+
+			// Apply camera rotation to CoM position
+			double rotatedX = comX;
+			double rotatedY = comY;
+			double rotatedZ = comZ;
+
+			// Yaw rotation (around Y-axis)
+			double tempX = rotatedX * cosYaw - rotatedZ * sinYaw;
+			rotatedZ = rotatedX * sinYaw + rotatedZ * cosYaw;
+			rotatedX = tempX;
+
+			// Pitch rotation (around X-axis)
+			tempY = rotatedY * cosPitch - rotatedZ * sinPitch;
+			rotatedZ = rotatedY * sinPitch + rotatedZ * cosPitch;
+			rotatedY = tempY;
+
+			// Roll rotation (around Z-axis)
+			tempX = rotatedX * cosRoll - rotatedY * sinRoll;
+			rotatedY = rotatedX * sinRoll + rotatedY * cosRoll;
+			rotatedX = tempX;
+
+			// Skip if behind camera
+			if (rotatedZ >= cameraDistance - CAMERA_Z_BUFFER)
+				goto skipCoM;
+
+			// Perspective projection
+			double scale = fov / (cameraDistance - rotatedZ);
+
+			// Apply pan offset
+			int screenX = centerX + static_cast<int>(rotatedX * scale) + static_cast<int>(m_panOffsetX);
+			int screenY = centerY - static_cast<int>(rotatedY * scale) - static_cast<int>(m_panOffsetY);
+
+			// Draw CoM marker (cyan cross)
+			const int COM_SIZE = 10;
+			CPen comPen(PS_SOLID, 2, RGB(0, 255, 255));  // Cyan
+			CPen* oldComPen = pDC->SelectObject(&comPen);
+
+			// Draw horizontal line
+			pDC->MoveTo(screenX - COM_SIZE, screenY);
+			pDC->LineTo(screenX + COM_SIZE, screenY);
+
+			// Draw vertical line
+			pDC->MoveTo(screenX, screenY - COM_SIZE);
+			pDC->LineTo(screenX, screenY + COM_SIZE);
+
+			// Draw circle around cross
+			CRect comRect(screenX - COM_SIZE, screenY - COM_SIZE, screenX + COM_SIZE, screenY + COM_SIZE);
+			pDC->Ellipse(&comRect);
+
+			pDC->SelectObject(oldComPen);
+			comPen.DeleteObject();
+
+			// Draw "CoM" label
+			CString comLabel = _T("CoM");
+			CRect labelRect;
+			pDC->GetTextExtent(comLabel, labelRect);
+			COLORREF oldColor = pDC->SetTextColor(RGB(0, 255, 255));
+			pDC->SetBkColor(RGB(0, 0, 0));
+			pDC->SetTextAlign(TA_LEFT | TA_TOP);
+			pDC->TextOut(screenX + COM_SIZE + 5, screenY - labelRect.Height() / 2, comLabel);
+			pDC->SetTextAlign(TA_LEFT | TA_TOP);
+			pDC->SetTextColor(oldColor);
+		}
+
+skipCoM:;
 	}
 
 	// Render collision flash effects (on top of everything)
@@ -806,6 +1111,42 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	temp.Format(_T("%d"), pUniverse->m_iIteration);
 	statusText += temp;
 
+	// Calculate and display elapsed simulation time
+	UINT64 elapsedSeconds = static_cast<UINT64>(pUniverse->m_iIteration) * static_cast<UINT64>(m_stepSizeSec);
+	UINT64 years = elapsedSeconds / 31536000;  // 365 days
+	UINT64 days = (elapsedSeconds % 31536000) / 86400;
+	UINT64 hours = (elapsedSeconds % 86400) / 3600;
+	UINT64 minutes = (elapsedSeconds % 3600) / 60;
+	UINT64 secs = elapsedSeconds % 60;
+
+	CString timeStr;
+	statusText += _T("\nElapsed time: ");
+	if (years > 0)
+	{
+		timeStr.Format(_T("Y:%I64u D:%I64u"), years, days);
+		statusText += timeStr;
+	}
+	else if (days > 0)
+	{
+		timeStr.Format(_T("D:%I64u H:%I64u"), days, hours);
+		statusText += timeStr;
+	}
+	else if (hours > 0)
+	{
+		timeStr.Format(_T("H:%I64u M:%I64u"), hours, minutes);
+		statusText += timeStr;
+	}
+	else if (minutes > 0)
+	{
+		timeStr.Format(_T("M:%I64u S:%I64u"), minutes, secs);
+		statusText += timeStr;
+	}
+	else
+	{
+		timeStr.Format(_T("S:%I64u"), secs);
+		statusText += timeStr;
+	}
+
 	statusText += _T("\nBodies: ");
 	temp.Format(_T("%d"), pUniverse->GetMassCount());
 	statusText += temp;
@@ -841,10 +1182,49 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 	temp.Format(_T("%d"), m_stepsPerFrame);
 	statusText += temp;
 
+	statusText += _T("\nSpeed: ");
+	temp.Format(_T("%.1fx"), m_speedMultiplier);
+	statusText += temp;
+
+	// Show slow motion status
+	if (m_slowMotionFramesRemaining > 0)
+	{
+		statusText += _T(" [SLOW MOTION: ");
+		CString framesLeft;
+		framesLeft.Format(_T("%d frames"), m_slowMotionFramesRemaining);
+		statusText += framesLeft;
+		statusText += _T("]");
+	}
+
+	// Show breakpoint status
+	if (m_bBreakpointEnabled && m_breakpointIteration >= 0)
+	{
+		statusText += _T("\nBreakpoint: ");
+		CString bpStr;
+		bpStr.Format(_T("iteration %d"), m_breakpointIteration);
+		statusText += bpStr;
+	}
+
 	// Draw energy conservation statistics
 	double totalEnergy = pUniverse->GetTotalEnergy();
 	double kineticEnergy = pUniverse->GetTotalKineticEnergy();
 	double potentialEnergy = pUniverse->GetTotalPotentialEnergy();
+
+	// Record energy history for chart (every 10th frame to reduce data)
+	if ((pUniverse->m_iIteration % 10) == 0)
+	{
+		m_energyHistory.push_back(totalEnergy);
+		m_kineticHistory.push_back(kineticEnergy);
+		m_potentialHistory.push_back(potentialEnergy);
+
+		// Limit history size
+		while (m_energyHistory.size() > MAX_ENERGY_HISTORY)
+		{
+			m_energyHistory.erase(m_energyHistory.begin());
+			m_kineticHistory.erase(m_kineticHistory.begin());
+			m_potentialHistory.erase(m_potentialHistory.begin());
+		}
+	}
 
 	statusText += _T("\n---");
 	statusText += _T("\nEnergy:");
@@ -1017,10 +1397,234 @@ void CEpistemotronView::DrawUIOverlay(CDC* pDC, const CRect& rcClient)
 		helpText += _T("\n\nRecording:");
 		helpText += _T("\n  E        Toggle recording");
 		helpText += _T("\n\nState:");
-		helpText += _T("\n  Menu     Save/Load State");
+		helpText += _T("\n  U        Save state");
+		helpText += _T("\n  L        Load state");
+		helpText += _T("\n  M        Toggle minimap");
+		helpText += _T("\n  G        Toggle energy chart");
+		helpText += _T("\n  D        Toggle body labels");
+		helpText += _T("\n  J        Toggle mass labels");
+		helpText += _T("\n  A        Toggle velocity vectors");
+		helpText += _T("\n  O        Toggle center of mass");
+		helpText += _T("\n  R        Toggle reference grid");
+		helpText += _T("\n  X        Lock/unlock camera rotation");
+		helpText += _T("\n  H        Reset camera (home)");
+		helpText += _T("\n  F        Zoom to fit all bodies");
+		helpText += _T("\n  Tab      Focus on selected body");
+		helpText += _T("\n  T        Toggle orbit trails");
+		helpText += _T("\n  I        Show body info");
+		helpText += _T("\n  E        Show selected body only");
+		helpText += _T("\n  W        Slow motion on collision");
+		helpText += _T("\n  F12      Screenshot");
 
 		pDC->SetTextColor(RGB(255, 255, 255));
 		pDC->TextOut(helpX + 10, helpY + 10, helpText);
+	}
+
+	// Draw minimap overview if enabled
+	if (m_bShowMinimap && pUniverse->GetMassCount() > 0)
+	{
+		const int minimapSize = 150;
+		const int minimapMargin = 10;
+		const int minimapX = rcClient.right - minimapSize - minimapMargin;
+		const int minimapY = rcClient.bottom - minimapSize - minimapMargin;
+
+		// Find bounds of all bodies
+		double minX = 0, maxX = 0, minY = 0, maxY = 0;
+		const int numBodies = pUniverse->GetMassCount();
+		for (int i = 0; i < numBodies; i++)
+		{
+			const Mass& m = pUniverse->GetAt(i);
+			if (i == 0)
+			{
+				minX = maxX = m.m_X;
+				minY = maxY = m.m_Y;
+			}
+			else
+			{
+				minX = fmin(minX, m.m_X);
+				maxX = fmax(maxX, m.m_X);
+				minY = fmin(minY, m.m_Y);
+				maxY = fmax(maxY, m.m_Y);
+			}
+		}
+
+		// Add padding to bounds
+		const double padding = (maxX - minX) * 0.1;
+		minX -= padding;
+		maxX += padding;
+		minY -= padding;
+		maxY += padding;
+
+		const double rangeX = maxX - minX;
+		const double rangeY = maxY - minY;
+		const double range = fmax(rangeX, rangeY);
+
+		// Draw minimap background (semi-transparent dark)
+		CRect minimapRect(minimapX, minimapY, minimapX + minimapSize, minimapY + minimapSize);
+		CBrush bgBrush(RGB(30, 30, 50));
+		CPen borderPen(PS_SOLID, 2, RGB(100, 150, 255));
+		CPen* pOldPen = pDC->SelectObject(&borderPen);
+		pDC->FillRect(minimapRect, &bgBrush);
+		pDC->Rectangle(minimapRect);
+
+		// Draw all bodies as dots
+		CPen dotPen(PS_SOLID, 2, RGB(255, 255, 100));
+		for (int i = 0; i < numBodies; i++)
+		{
+			const Mass& m = pUniverse->GetAt(i);
+			// Map position to minimap coordinates
+			int dotX = minimapX + static_cast<int>((m.m_X - minX) / range * (minimapSize - 4));
+			int dotY = minimapY + static_cast<int>((m.m_Y - minY) / range * (minimapSize - 4));
+
+			CRect dotRect(dotX - 1, dotY - 1, dotX + 2, dotY + 2);
+			CBrush dotBrush(RGB(255, 255, 100));
+			CPen* pOldDotPen = pDC->SelectObject(&dotPen);
+			pDC->FillRect(dotRect, &dotBrush);
+			pDC->SelectObject(pOldDotPen);
+		}
+
+		// Draw camera view rectangle
+		// Calculate camera bounds in world coordinates
+		const double camHalfWidth = m_fieldOfView / 2.0 - m_panOffsetX;
+		const double camHalfHeight = m_fieldOfView / 2.0 - m_panOffsetY;
+		const double camLeft = camHalfWidth - m_fieldOfView;
+		const double camRight = camHalfWidth;
+		const double camTop = camHalfHeight - m_fieldOfView;
+		const double camBottom = camHalfHeight;
+
+		// Map camera bounds to minimap coordinates
+		int camRectLeft = minimapX + static_cast<int>((camLeft - minX) / range * (minimapSize - 4));
+		int camRectTop = minimapY + static_cast<int>((camTop - minY) / range * (minimapSize - 4));
+		int camRectRight = minimapX + static_cast<int>((camRight - minX) / range * (minimapSize - 4));
+		int camRectBottom = minimapY + static_cast<int>((camBottom - minY) / range * (minimapSize - 4));
+
+		CRect camRect(camRectLeft, camRectTop, camRectRight, camRectBottom);
+		CPen camPen(PS_DOT, 2, RGB(255, 100, 100));
+		CPen* pOldCamPen = pDC->SelectObject(&camPen);
+		pDC->Rectangle(camRect);
+		pDC->SelectObject(pOldCamPen);
+		pDC->SelectObject(pOldPen);
+	}
+
+	// Draw energy conservation chart if enabled
+	if (m_bShowEnergyChart && !m_energyHistory.empty())
+	{
+		const int chartWidth = 300;
+		const int chartHeight = 150;
+		const int chartMargin = 10;
+		const int chartX = rcClient.left + chartMargin;
+		const int chartY = rcClient.top + 100;  // Below the status text
+
+		// Draw chart background
+		CRect chartRect(chartX, chartY, chartX + chartWidth, chartY + chartHeight);
+		CBrush chartBg(RGB(20, 20, 40));
+		CPen chartBorder(PS_SOLID, 1, RGB(100, 100, 150));
+		CPen* pOldChartPen = pDC->SelectObject(&chartBorder);
+		pDC->FillRect(chartRect, &chartBg);
+		pDC->Rectangle(chartRect);
+
+		// Draw title
+		CString title = _T("Energy Conservation");
+		pDC->SetTextColor(RGB(200, 200, 255));
+		pDC->TextOut(chartX + 5, chartY + 2, title);
+
+		// Calculate chart bounds
+		double minEnergy = m_energyHistory[0];
+		double maxEnergy = m_energyHistory[0];
+		for (size_t i = 0; i < m_energyHistory.size(); i++)
+		{
+			minEnergy = fmin(minEnergy, m_energyHistory[i]);
+			maxEnergy = fmax(maxEnergy, m_energyHistory[i]);
+			minEnergy = fmin(minEnergy, m_kineticHistory[i]);
+			maxEnergy = fmax(maxEnergy, m_kineticHistory[i]);
+			minEnergy = fmin(minEnergy, m_potentialHistory[i]);
+			maxEnergy = fmax(maxEnergy, m_potentialHistory[i]);
+		}
+
+		// Add padding to bounds
+		double energyRange = maxEnergy - minEnergy;
+		if (energyRange < 1.0) energyRange = 1.0;
+		minEnergy -= energyRange * 0.1;
+		maxEnergy += energyRange * 0.1;
+
+		const int innerLeft = chartX + 30;
+		const int innerRight = chartX + chartWidth - 5;
+		const int innerTop = chartY + 25;
+		const int innerBottom = chartY + chartHeight - 10;
+		const int chartPlotWidth = innerRight - innerLeft;
+		const int chartPlotHeight = innerBottom - innerTop;
+
+		// Draw grid lines
+		CPen gridPen(PS_SOLID, 1, RGB(50, 50, 80));
+		CPen* pOldGridPen = pDC->SelectObject(&gridPen);
+		pDC->MoveTo(innerLeft, innerTop);
+		pDC->LineTo(innerRight, innerTop);
+		pDC->MoveTo(innerLeft, innerBottom);
+		pDC->LineTo(innerRight, innerBottom);
+		pDC->MoveTo(innerLeft, innerTop);
+		pDC->LineTo(innerLeft, innerBottom);
+		pDC->SelectObject(pOldChartPen);
+
+		// Helper lambda to convert energy value to Y pixel
+		auto energyToY = [&](double energy) -> int
+		{
+			double normalized = (energy - minEnergy) / (maxEnergy - minEnergy);
+			return innerBottom - static_cast<int>(normalized * chartPlotHeight);
+		};
+
+		// Draw total energy line (white)
+		CPen totalPen(PS_SOLID, 2, RGB(255, 255, 255));
+		CPen* pOldTotalPen = pDC->SelectObject(&totalPen);
+		for (size_t i = 1; i < m_energyHistory.size(); i++)
+		{
+			int x1 = innerLeft + static_cast<int>((i - 1) * chartPlotWidth / (MAX_ENERGY_HISTORY - 1));
+			int x2 = innerLeft + static_cast<int>(i * chartPlotWidth / (MAX_ENERGY_HISTORY - 1));
+			int y1 = energyToY(m_energyHistory[i - 1]);
+			int y2 = energyToY(m_energyHistory[i]);
+			pDC->MoveTo(x1, y1);
+			pDC->LineTo(x2, y2);
+		}
+		pDC->SelectObject(pOldChartPen);
+
+		// Draw kinetic energy line (yellow)
+		CPen kineticPen(PS_SOLID, 2, RGB(255, 255, 100));
+		CPen* pOldKineticPen = pDC->SelectObject(&kineticPen);
+		for (size_t i = 1; i < m_kineticHistory.size(); i++)
+		{
+			int x1 = innerLeft + static_cast<int>((i - 1) * chartPlotWidth / (MAX_ENERGY_HISTORY - 1));
+			int x2 = innerLeft + static_cast<int>(i * chartPlotWidth / (MAX_ENERGY_HISTORY - 1));
+			int y1 = energyToY(m_kineticHistory[i - 1]);
+			int y2 = energyToY(m_kineticHistory[i]);
+			pDC->MoveTo(x1, y1);
+			pDC->LineTo(x2, y2);
+		}
+		pDC->SelectObject(pOldChartPen);
+
+		// Draw potential energy line (cyan)
+		CPen potentialPen(PS_SOLID, 2, RGB(100, 255, 255));
+		CPen* pOldPotentialPen = pDC->SelectObject(&potentialPen);
+		for (size_t i = 1; i < m_potentialHistory.size(); i++)
+		{
+			int x1 = innerLeft + static_cast<int>((i - 1) * chartPlotWidth / (MAX_ENERGY_HISTORY - 1));
+			int x2 = innerLeft + static_cast<int>(i * chartPlotWidth / (MAX_ENERGY_HISTORY - 1));
+			int y1 = energyToY(m_potentialHistory[i - 1]);
+			int y2 = energyToY(m_potentialHistory[i]);
+			pDC->MoveTo(x1, y1);
+			pDC->LineTo(x2, y2);
+		}
+		pDC->SelectObject(pOldChartPen);
+
+		// Draw legend
+		pDC->SetTextColor(RGB(255, 255, 255));
+		pDC->TextOut(chartX + chartWidth - 80, chartY + 30, _T("Total"));
+		pDC->SetTextColor(RGB(255, 255, 100));
+		pDC->TextOut(chartX + chartWidth - 80, chartY + 45, _T("Kinetic"));
+		pDC->SetTextColor(RGB(100, 255, 255));
+		pDC->TextOut(chartX + chartWidth - 80, chartY + 60, _T("Potential"));
+
+		pDC->SelectObject(pOldPotentialPen);
+		pDC->SelectObject(pOldKineticPen);
+		pDC->SelectObject(pOldTotalPen);
 	}
 }
 
@@ -1251,6 +1855,7 @@ void CEpistemotronView::ResetSimulation()
 	m_collisionFlashes.clear();
 
 	m_stepsPerFrame = 1;
+	m_speedMultiplier = 1.0;  // Reset to normal speed
 	// Set step size based on scenario
 	switch (m_currentScenario)
 	{
@@ -1297,13 +1902,49 @@ void CEpistemotronView::StepSimulation()
 
 void CEpistemotronView::SpeedUp()
 {
-	m_stepsPerFrame = min(m_stepsPerFrame * 2, MAX_STEPS_PER_FRAME);
+	// Cycle through speed multipliers: 0.1x, 0.5x, 1x, 2x, 5x, 10x
+	const double speedLevels[] = { 0.1, 0.5, 1.0, 2.0, 5.0, 10.0 };
+	int currentLevel = -1;
+	for (int i = 0; i < 6; i++)
+	{
+		if (fabs(m_speedMultiplier - speedLevels[i]) < 0.01)
+		{
+			currentLevel = i;
+			break;
+		}
+	}
+	if (currentLevel >= 0 && currentLevel < 5)
+	{
+		m_speedMultiplier = speedLevels[currentLevel + 1];
+	}
+	else
+	{
+		m_speedMultiplier = 10.0;  // Max speed
+	}
 	Invalidate();
 }
 
 void CEpistemotronView::SlowDown()
 {
-	m_stepsPerFrame = max(m_stepsPerFrame / 2, 1);
+	// Cycle through speed multipliers: 0.1x, 0.5x, 1x, 2x, 5x, 10x
+	const double speedLevels[] = { 0.1, 0.5, 1.0, 2.0, 5.0, 10.0 };
+	int currentLevel = -1;
+	for (int i = 0; i < 6; i++)
+	{
+		if (fabs(m_speedMultiplier - speedLevels[i]) < 0.01)
+		{
+			currentLevel = i;
+			break;
+		}
+	}
+	if (currentLevel > 0)
+	{
+		m_speedMultiplier = speedLevels[currentLevel - 1];
+	}
+	else
+	{
+		m_speedMultiplier = 0.1;  // Min speed
+	}
 	Invalidate();
 }
 
@@ -1363,6 +2004,19 @@ void CEpistemotronView::OnTimer(UINT_PTR nIDEvent)
 				break;  // Exit loop to stop simulation
 			}
 
+			// Trigger slow motion on collision if enabled
+			if (m_bSlowMotionOnCollision && m_slowMotionFramesRemaining == 0)
+			{
+				// Save current speed and switch to slow motion
+				m_slowMotionOriginalSpeed = m_speedMultiplier;
+				m_speedMultiplier = m_slowMotionSpeed;
+				m_slowMotionFramesRemaining = m_slowMotionFrames;
+				CString slowMsg;
+				slowMsg.Format(_T("Slow motion activated: %.0f%% speed"), m_slowMotionSpeed * 100.0);
+				SetStatusBarMessage(slowMsg);
+				TRACE(_T("%s\n"), slowMsg);
+			}
+
 			for (const auto& event : collisionEvents)
 			{
 				AddCollisionFlash(event.x, event.y, event.z, event.color);
@@ -1371,6 +2025,36 @@ void CEpistemotronView::OnTimer(UINT_PTR nIDEvent)
 
 		delete pDoc->m_pCurrentUniverse;
 		pDoc->m_pCurrentUniverse = pNextUniverse;
+	}
+
+	// Handle slow motion countdown
+	if (m_slowMotionFramesRemaining > 0)
+	{
+		m_slowMotionFramesRemaining--;
+		if (m_slowMotionFramesRemaining == 0)
+		{
+			// Restore original speed
+			m_speedMultiplier = m_slowMotionOriginalSpeed;
+			CString restoreMsg;
+			restoreMsg.Format(_T("Speed restored: %.1fx"), m_speedMultiplier);
+			SetStatusBarMessage(restoreMsg);
+			TRACE(_T("%s\n"), restoreMsg);
+		}
+	}
+
+	// Check breakpoint - pause if we've reached or exceeded the target iteration
+	if (m_bBreakpointEnabled && m_breakpointIteration >= 0)
+	{
+		int currentIteration = pDoc->m_pCurrentUniverse->GetIteration();
+		if (currentIteration >= m_breakpointIteration)
+		{
+			PauseSimulation();
+			CString msg;
+			msg.Format(_T("Breakpoint reached at iteration %d"), currentIteration);
+			SetStatusBarMessage(msg);
+			TRACE(_T("%s\n"), msg);
+			m_bBreakpointEnabled = FALSE;  // Auto-disable after hit
+		}
 	}
 
 	Invalidate();  // Trigger redraw
@@ -1430,6 +2114,203 @@ void CEpistemotronView::OnSimulationConfig()
 		// TODO: Apply other configuration settings (numBodies, random positions, etc.)
 		Invalidate();
 	}
+}
+
+void CEpistemotronView::OnSimulationBreakpoint()
+{
+	// Get current iteration
+	CEpistemotronDoc* pDoc = GetDocument();
+	int currentIteration = 0;
+	if (pDoc && pDoc->m_pCurrentUniverse)
+	{
+		currentIteration = pDoc->m_pCurrentUniverse->GetIteration();
+	}
+
+	if (m_bBreakpointEnabled)
+	{
+		// Clear existing breakpoint
+		m_bBreakpointEnabled = FALSE;
+		m_breakpointIteration = -1;
+		SetStatusBarMessage(_T("Breakpoint cleared"));
+		TRACE(_T("Breakpoint cleared\n"));
+	}
+	else
+	{
+		// Show breakpoint dialog to set new breakpoint
+		CBreakpointDlg dlg(currentIteration, this);
+		if (dlg.DoModal() == IDOK)
+		{
+			m_bBreakpointEnabled = TRUE;
+			m_breakpointIteration = dlg.GetTargetIteration();
+
+			CString statusMsg;
+			statusMsg.Format(_T("Breakpoint set at iteration %d"), m_breakpointIteration);
+			SetStatusBarMessage(statusMsg);
+			TRACE(_T("%s\n"), statusMsg);
+		}
+	}
+
+	Invalidate();
+}
+
+void CEpistemotronView::ResetCamera()
+{
+	// Reset camera to default values
+	m_cameraDistance = DEFAULT_CAMERA_DISTANCE_KM;
+	m_fieldOfView = DEFAULT_FIELD_OF_VIEW_KM;
+	m_panOffsetX = 0.0;
+	m_panOffsetY = 0.0;
+	m_rotationPitch = 0.0;
+	m_rotationYaw = 0.0;
+	m_rotationRoll = 0.0;
+
+	SetStatusBarMessage(_T("Camera reset to default position"));
+	TRACE(_T("Camera reset to default position\n"));
+	Invalidate();
+}
+
+void CEpistemotronView::ZoomToFitAll()
+{
+	CEpistemotronDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->m_pCurrentUniverse)
+	{
+		SetStatusBarMessage(_T("No universe to zoom to"));
+		return;
+	}
+
+	const Universe& universe = *pDoc->m_pCurrentUniverse;
+	int massCount = universe.GetMassCount();
+
+	if (massCount == 0)
+	{
+		SetStatusBarMessage(_T("No bodies to zoom to"));
+		return;
+	}
+
+	// Find bounds of all bodies
+	double minX = 0, maxX = 0, minY = 0, maxY = 0, minZ = 0, maxZ = 0;
+
+	for (int i = 0; i < massCount; i++)
+	{
+		const Mass& m = universe.GetAt(i);
+		if (i == 0)
+		{
+			minX = maxX = m.m_X;
+			minY = maxY = m.m_Y;
+			minZ = maxZ = m.m_Z;
+		}
+		else
+		{
+			minX = std::min(minX, m.m_X);
+			maxX = std::max(maxX, m.m_X);
+			minY = std::min(minY, m.m_Y);
+			maxY = std::max(maxY, m.m_Y);
+			minZ = std::min(minZ, m.m_Z);
+			maxZ = std::max(maxZ, m.m_Z);
+		}
+	}
+
+	// Calculate center
+	double centerX = (minX + maxX) / 2.0;
+	double centerY = (minY + maxY) / 2.0;
+	double centerZ = (minZ + maxZ) / 2.0;
+
+	// Calculate extent
+	double extentX = maxX - minX;
+	double extentY = maxY - minY;
+	double extentZ = maxZ - minZ;
+	double maxExtent = std::max({extentX, extentY, extentZ});
+
+	// Add 20% padding
+	maxExtent *= 1.2;
+
+	// Calculate new camera distance (view from 45 degrees angle)
+	// Camera distance should allow seeing maxExtent with some margin
+	m_fieldOfView = maxExtent * 1.5;
+	m_cameraDistance = m_fieldOfView * 2.0;  // 2x field of view for good perspective
+
+	// Center the view using pan offset
+	m_panOffsetX = -centerX * (m_fieldOfView / m_cameraDistance) * 50;  // Scale to screen
+	m_panOffsetY = -centerY * (m_fieldOfView / m_cameraDistance) * 50;
+
+	// Set a nice viewing angle
+	m_rotationPitch = 0.3;  // Slight pitch up
+	m_rotationYaw = 0.5;    // Slight yaw
+	m_rotationRoll = 0.0;   // No roll
+
+	CString zoomMsg;
+	zoomMsg.Format(_T("Zoomed to fit all %d bodies"), massCount);
+	SetStatusBarMessage(zoomMsg);
+	TRACE(_T("%s\n"), zoomMsg);
+	Invalidate();
+}
+
+void CEpistemotronView::FocusOnSelectedBody()
+{
+	CEpistemotronDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->m_pCurrentUniverse)
+	{
+		SetStatusBarMessage(_T("No universe to focus on"));
+		return;
+	}
+
+	if (m_selectedBodyIndex < 0)
+	{
+		SetStatusBarMessage(_T("No body selected - click on a body first"));
+		return;
+	}
+
+	const Universe& universe = *pDoc->m_pCurrentUniverse;
+	int massCount = universe.GetMassCount();
+
+	if (m_selectedBodyIndex >= massCount)
+	{
+		SetStatusBarMessage(_T("Selected body no longer exists"));
+		m_selectedBodyIndex = -1;
+		return;
+	}
+
+	const Mass& selected = universe.GetAt(m_selectedBodyIndex);
+
+	// Calculate appropriate zoom based on body type
+	double zoomDistance;
+	if (selected.m_MasseKG >= STAR_MASS_THRESHOLD)
+	{
+		// Star - zoom in closer
+		zoomDistance = 10000000.0;  // 10 million km
+	}
+	else if (selected.m_MasseKG >= PLANET_MASS_THRESHOLD)
+	{
+		// Planet - medium zoom
+		zoomDistance = 1000000.0;   // 1 million km
+	}
+	else
+	{
+		// Small body - closer zoom
+		zoomDistance = 100000.0;    // 100k km
+	}
+
+	// Set camera parameters
+	m_fieldOfView = zoomDistance * 0.5;
+	m_cameraDistance = zoomDistance;
+
+	// Center on selected body using pan offset
+	// Note: This is a simplified centering - for perfect centering,
+	// we would need to move the camera position, not just pan
+	m_panOffsetX = -selected.m_X * (m_fieldOfView / m_cameraDistance) * 50;
+	m_panOffsetY = -selected.m_Y * (m_fieldOfView / m_cameraDistance) * 50;
+
+	// Set a nice viewing angle
+	m_rotationPitch = 0.3;
+	m_rotationYaw = 0.5;
+	m_rotationRoll = 0.0;
+
+	CString focusMsg;
+	focusMsg.Format(_T("Focused on body at (%.0f, %.0f, %.0f) km"),
+		selected.m_X, selected.m_Y, selected.m_Z);
+	SetStatusBarMessage(focusMsg);
+	TRACE(_T("%s\n"), focusMsg);
+	Invalidate();
 }
 
 // Scenario selection implementations
@@ -1536,9 +2417,85 @@ CString CEpistemotronView::GetScenarioName() const
 		return _T("Three-Body Problem (Figure-8 Orbit)");
 	case ScenarioType::Galaxy:
 		return _T("Galaxy-like (Central Black Hole + 50 Stars)");
+	case ScenarioType::Custom:
+		return _T("Custom Scenario");
 	default:
 		return _T("Unknown Scenario");
 	}
+}
+
+// ============================================================================
+// Camera Preset Management
+// ============================================================================
+
+void CEpistemotronView::SaveCurrentPreset(LPCTSTR name)
+{
+	CameraPreset preset(name, m_cameraDistance, m_fieldOfView,
+		m_panOffsetX, m_panOffsetY, m_rotationPitch, m_rotationYaw, m_rotationRoll);
+	m_cameraPresets.push_back(preset);
+
+	CString msg;
+	msg.Format(_T("Camera preset '%s' saved."), name);
+	AfxMessageBox(msg, MB_ICONINFORMATION);
+}
+
+void CEpistemotronView::LoadPreset(int index)
+{
+	if (index < 0 || index >= static_cast<int>(m_cameraPresets.size()))
+	{
+		AfxMessageBox(_T("Invalid preset index."), MB_ICONWARNING);
+		return;
+	}
+
+	const CameraPreset& preset = m_cameraPresets[index];
+	m_cameraDistance = preset.distance;
+	m_fieldOfView = preset.fov;
+	m_panOffsetX = preset.panX;
+	m_panOffsetY = preset.panY;
+	m_rotationPitch = preset.pitch;
+	m_rotationYaw = preset.yaw;
+	m_rotationRoll = preset.roll;
+	m_selectedPresetIndex = index;
+
+	CString msg;
+	msg.Format(_T("Loaded camera preset: %s"), preset.name);
+	AfxMessageBox(msg, MB_ICONINFORMATION);
+	Invalidate();
+}
+
+void CEpistemotronView::LoadNextPreset()
+{
+	if (m_cameraPresets.empty())
+	{
+		AfxMessageBox(_T("No camera presets saved."), MB_ICONINFORMATION);
+		return;
+	}
+
+	int nextIndex = m_selectedPresetIndex + 1;
+	if (nextIndex >= static_cast<int>(m_cameraPresets.size()))
+		nextIndex = 0;
+	LoadPreset(nextIndex);
+}
+
+void CEpistemotronView::LoadPrevPreset()
+{
+	if (m_cameraPresets.empty())
+	{
+		AfxMessageBox(_T("No camera presets saved."), MB_ICONINFORMATION);
+		return;
+	}
+
+	int prevIndex = m_selectedPresetIndex - 1;
+	if (prevIndex < 0)
+		prevIndex = static_cast<int>(m_cameraPresets.size()) - 1;
+	LoadPreset(prevIndex);
+}
+
+CString CEpistemotronView::GetPresetName(int index) const
+{
+	if (index < 0 || index >= static_cast<int>(m_cameraPresets.size()))
+		return _T("");
+	return m_cameraPresets[index].name;
 }
 
 // Scenario message handlers
@@ -1565,6 +2522,32 @@ void CEpistemotronView::OnScenarioGalaxy()
 {
 	LoadScenarioGalaxy();
 	Invalidate();
+}
+
+void CEpistemotronView::OnScenarioCustom()
+{
+	CCustomScenarioDlg dlg;
+	if (dlg.DoModal() == IDOK)
+	{
+		// Get the scenario bodies from the dialog
+		std::vector<Mass> bodies = dlg.GetScenarioBodies();
+		if (!bodies.empty())
+		{
+			// Clear current universe and load new scenario
+			CEpistemotronDoc* pDoc = GetDocument();
+			if (pDoc && pDoc->m_pCurrentUniverse)
+			{
+				pDoc->m_pCurrentUniverse->Clear();
+				for (const auto& body : bodies)
+				{
+					pDoc->m_pCurrentUniverse->AddBody(body);
+				}
+				m_currentScenario = ScenarioType::Custom;
+				ResetSimulation();
+				Invalidate();
+			}
+		}
+	}
 }
 
 void CEpistemotronView::OnScenarioNext()
@@ -1692,20 +2675,79 @@ void CEpistemotronView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 	case VK_ESCAPE:
 		// Reset camera to default position
-		m_cameraDistance = DEFAULT_CAMERA_DISTANCE_KM;
-		m_fieldOfView = DEFAULT_FIELD_OF_VIEW_KM;
-		m_panOffsetX = 0.0;
-		m_panOffsetY = 0.0;
-		m_rotationPitch = 0.0;
-		m_rotationYaw = 0.0;
-		m_rotationRoll = 0.0;
-		Invalidate();
+		ResetCamera();
+		break;
+
+	case VK_TAB:
+		// Focus on selected body (Tab for "Target")
+		FocusOnSelectedBody();
 		break;
 
 	case VK_F1:
 		// Toggle help overlay
 		m_bShowHelp = !m_bShowHelp;
 		Invalidate();
+		break;
+
+	case VK_F12:
+		{
+		// Capture screenshot with timestamp
+		SYSTEMTIME st;
+		GetLocalTime(&st);
+
+		CString screenshotPath;
+		screenshotPath.Format(_T(".\\screenshots\\screenshot_%04d%02d%02d_%02d%02d%02d.bmp"),
+			st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+
+		// Create screenshots directory if needed
+		CreateDirectory(_T(".\\screenshots"), nullptr);
+
+		// Capture current frame
+		CRect rcClient;
+		GetClientRect(&rcClient);
+		int width = rcClient.Width();
+		int height = rcClient.Height();
+
+		if (width > 0 && height > 0)
+		{
+			CFile file;
+			if (file.Open(screenshotPath, CFile::modeCreate | CFile::modeWrite | CFile::typeBinary))
+			{
+				BITMAPINFOHEADER bih = { 0 };
+				bih.biSize = sizeof(BITMAPINFOHEADER);
+				bih.biWidth = width;
+				bih.biHeight = -height;
+				bih.biPlanes = 1;
+				bih.biBitCount = 24;
+				bih.biCompression = BI_RGB;
+				bih.biSizeImage = ((width * 3 + 3) & ~3) * height;
+
+				BITMAPFILEHEADER bfh = { 0 };
+				bfh.bfType = 0x4D42;
+				bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+				bfh.bfSize = bfh.bfOffBits + bih.biSizeImage;
+
+				file.Write(&bfh, sizeof(bfh));
+				file.Write(&bih, sizeof(bih));
+
+				BYTE* pBits = new BYTE[bih.biSizeImage];
+				BITMAPINFO bmi = { 0 };
+				bmi.bmiHeader = bih;
+				bmi.bmiHeader.biHeight = height;
+
+				if (::GetDIBits(m_memDC.GetSafeHdc(), m_memBitmap, 0, height, pBits, &bmi, DIB_RGB_COLORS))
+				{
+					file.Write(pBits, bih.biSizeImage);
+					CString msg;
+					msg.Format(_T("Screenshot saved: %s"), screenshotPath);
+					SetStatusBarMessage(msg);
+					TRACE(_T("%s\n"), msg);
+				}
+				delete[] pBits;
+				file.Close();
+			}
+		}
+		}
 		break;
 
 	case 'I':
@@ -1724,9 +2766,15 @@ void CEpistemotronView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 	case 'T':
 	case 't':
+		{
 		// Toggle orbit trails
 		m_bShowTrails = !m_bShowTrails;
+		CString trailStatus = m_bShowTrails ? _T("Orbit trails: ON") : _T("Orbit trails: OFF");
+		SetStatusBarMessage(trailStatus);
+		TRACE(_T("%s\n"), trailStatus);
 		Invalidate();
+		handled = TRUE;
+		}
 		break;
 
 	case 'N':
@@ -1765,6 +2813,20 @@ void CEpistemotronView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 			path = _T(".\\recordings");
 			StartRecording(path, _T("frame"));
 		}
+		Invalidate();
+		break;
+
+	case 'L':
+	case 'l':
+		// Load simulation state
+		OnStateLoad();
+		Invalidate();
+		break;
+
+	case 'U':
+	case 'u':
+		// Save simulation state (U for "U"niverse save, since S is reset)
+		OnStateSave();
 		Invalidate();
 		break;
 
@@ -1838,6 +2900,67 @@ void CEpistemotronView::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags)
 		}
 		break;
 
+	case 'I':
+	case 'i':
+		{
+		// Show detailed info about selected body
+		CEpistemotronDoc* pDoc = GetDocument();
+		if (pDoc && pDoc->m_pCurrentUniverse && m_selectedBodyIndex >= 0)
+		{
+			const Universe& universe = *pDoc->m_pCurrentUniverse;
+			if (m_selectedBodyIndex < universe.GetMassCount())
+			{
+				const Mass& m = universe.GetAt(m_selectedBodyIndex);
+				CString info;
+				info.Format(_T("Body: %s\n"
+				              "  Position: (%.1f, %.1f, %.1f) km\n"
+				              "  Velocity: (%.1f, %.1f, %.1f) m/s\n"
+				              "  Mass: %.3e kg\n"
+				              "  Radius: %.1f km\n"
+				              "  Speed: %.1f m/s"),
+				              m.m_Name.IsEmpty() ? _T("Unnamed") : m.m_Name,
+				              m.m_X, m.m_Y, m.m_Z,
+				              m.m_VitesseX, m.m_VitesseY, m.m_VitesseZ,
+				              m.m_MasseKG,
+				              m.GetPhysicalRadiusKM(),
+				              std::sqrt(m.m_VitesseX*m.m_VitesseX + m.m_VitesseY*m.m_VitesseY + m.m_VitesseZ*m.m_VitesseZ));
+				AfxMessageBox(info, MB_ICONINFORMATION);
+			}
+		}
+		else
+		{
+			SetStatusBarMessage(_T("No body selected - click on a body first"));
+		}
+		handled = TRUE;
+		}
+		break;
+
+	case 'E':
+	case 'e':
+		{
+		// Toggle show selected body only (E for "Exclusive view")
+		m_bShowSelectedOnly = !m_bShowSelectedOnly;
+		CString exclusiveStatus = m_bShowSelectedOnly ? _T("Show selected only: ON") : _T("Show selected only: OFF");
+		SetStatusBarMessage(exclusiveStatus);
+		TRACE(_T("%s\n"), exclusiveStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'J':
+	case 'j':
+		{
+		// Toggle mass labels (J for "Jupiter mass" reference)
+		m_bShowMassLabels = !m_bShowMassLabels;
+		CString massLabelStatus = m_bShowMassLabels ? _T("Mass labels: ON") : _T("Mass labels: OFF");
+		SetStatusBarMessage(massLabelStatus);
+		TRACE(_T("%s\n"), massLabelStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
 	case 'P':
 	case 'p':
 		{
@@ -1858,6 +2981,169 @@ void CEpistemotronView::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags)
 		m_collisionFlashes.clear();
 		SetStatusBarMessage(_T("Collision flashes cleared"));
 		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'M':
+	case 'm':
+		{
+		// Toggle minimap overview
+		m_bShowMinimap = !m_bShowMinimap;
+		CString minimapStatus = m_bShowMinimap ? _T("Minimap: ON") : _T("Minimap: OFF");
+		SetStatusBarMessage(minimapStatus);
+		TRACE(_T("%s\n"), minimapStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'D':
+	case 'd':
+		{
+		// Toggle body labels (D for "Display labels")
+		m_bShowLabels = !m_bShowLabels;
+		CString labelStatus = m_bShowLabels ? _T("Body labels: ON") : _T("Body labels: OFF");
+		SetStatusBarMessage(labelStatus);
+		TRACE(_T("%s\n"), labelStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'W':
+	case 'w':
+		{
+		// Toggle slow motion on collision (W for "Slow motion")
+		m_bSlowMotionOnCollision = !m_bSlowMotionOnCollision;
+		CString slowStatus = m_bSlowMotionOnCollision ? _T("Slow motion on collision: ON") : _T("Slow motion on collision: OFF");
+		SetStatusBarMessage(slowStatus);
+		TRACE(_T("%s\n"), slowStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'X':
+	case 'x':
+		{
+		// Toggle camera rotation lock (X marks the spot = locked)
+		m_bRotationLocked = !m_bRotationLocked;
+		CString lockStatus = m_bRotationLocked ? _T("Camera rotation: LOCKED") : _T("Camera rotation: UNLOCKED");
+		SetStatusBarMessage(lockStatus);
+		TRACE(_T("%s\n"), lockStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'H':
+	case 'h':
+		{
+		// Reset camera to home/default position (H for "Home")
+		ResetCamera();
+		handled = TRUE;
+		}
+		break;
+
+	case 'F':
+	case 'f':
+		{
+		// Zoom to fit all bodies (F for "Fit")
+		ZoomToFitAll();
+		handled = TRUE;
+		}
+		break;
+
+	case 'A':
+	case 'a':
+		{
+		// Toggle velocity vectors (A for "Arrows")
+		m_bShowVelocities = !m_bShowVelocities;
+		CString velStatus = m_bShowVelocities ? _T("Velocity vectors: ON") : _T("Velocity vectors: OFF");
+		SetStatusBarMessage(velStatus);
+		TRACE(_T("%s\n"), velStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'O':
+	case 'o':
+		{
+		// Toggle center of mass marker (O for "Origin/Center")
+		m_bShowCoM = !m_bShowCoM;
+		CString comStatus = m_bShowCoM ? _T("Center of mass: ON") : _T("Center of mass: OFF");
+		SetStatusBarMessage(comStatus);
+		TRACE(_T("%s\n"), comStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'R':
+	case 'r':
+		{
+		// Toggle reference grid (R for "Reference grid")
+		m_bShowGrid = !m_bShowGrid;
+		CString gridStatus = m_bShowGrid ? _T("Reference grid: ON") : _T("Reference grid: OFF");
+		SetStatusBarMessage(gridStatus);
+		TRACE(_T("%s\n"), gridStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'G':
+	case 'g':
+		{
+		// Toggle energy chart
+		m_bShowEnergyChart = !m_bShowEnergyChart;
+		CString chartStatus = m_bShowEnergyChart ? _T("Energy chart: ON") : _T("Energy chart: OFF");
+		SetStatusBarMessage(chartStatus);
+		TRACE(_T("%s\n"), chartStatus);
+		Invalidate();
+		handled = TRUE;
+		}
+		break;
+
+	case 'S':
+		{
+		// Save current camera as preset (with prompt for name)
+		CString presetName;
+		presetName.Format(_T("Preset %d"), m_cameraPresets.size() + 1);
+		CFileDialog dlg(FALSE, _T("txt"), presetName, OFN_OVERWRITEPROMPT, _T("Text Files (*.txt)|*.txt|All Files (*.*)|*.*|"), nullptr);
+		if (dlg.DoModal() == IDOK)
+		{
+			SaveCurrentPreset(dlg.GetPathName());
+		}
+		handled = TRUE;
+		}
+		break;
+
+	case 'N':
+	case 'n':
+		{
+		// Load next preset
+		LoadNextPreset();
+		handled = TRUE;
+		}
+		break;
+
+	case 'B':
+	case 'b':
+		{
+		// Load previous preset (B for "Back")
+		LoadPrevPreset();
+		handled = TRUE;
+		}
+		break;
+
+	case 'K':
+	case 'k':
+		{
+		// Toggle breakpoint (K for "breakpoint" - keyboard mnemonic)
+		OnSimulationBreakpoint();
 		handled = TRUE;
 		}
 		break;
@@ -2089,6 +3375,14 @@ void CEpistemotronView::OnMouseMove(UINT nFlags, CPoint point)
 
 void CEpistemotronView::OnRButtonDown(UINT nFlags, CPoint point)
 {
+	// Check if rotation is locked
+	if (m_bRotationLocked)
+	{
+		SetStatusBarMessage(_T("Rotation locked - press L to unlock"));
+		CView::OnRButtonDown(nFlags, point);
+		return;
+	}
+
 	// Start rotating for camera view
 	m_bRotating = TRUE;
 	m_lastMousePos = point;
@@ -2101,6 +3395,14 @@ void CEpistemotronView::OnRButtonDown(UINT nFlags, CPoint point)
 
 void CEpistemotronView::OnMButtonDown(UINT nFlags, CPoint point)
 {
+	// Check if rotation is locked
+	if (m_bRotationLocked)
+	{
+		SetStatusBarMessage(_T("Rotation locked - press L to unlock"));
+		CView::OnMButtonDown(nFlags, point);
+		return;
+	}
+
 	// Start rotating for roll
 	m_bRotating = TRUE;
 	m_lastMousePos = point;
@@ -2437,7 +3739,7 @@ void CEpistemotronView::OnExportFrame()
 
 		// Create offscreen bitmap for capture
 		CDC memDC;
-		memDC.CreateCompatibleDC(pDC);
+		memDC.CreateCompatibleDC(&m_memDC);
 		CBitmap bitmap;
 		bitmap.CreateCompatibleBitmap(&m_memDC, width, height);
 		CBitmap* oldBitmap = memDC.SelectObject(&bitmap);
@@ -2493,10 +3795,6 @@ void CEpistemotronView::OnExportFrame()
 			// For PNG, save as BMP first then convert (simple approach)
 			CString tempPath = filepath;
 			tempPath.Replace(_T(".png"), _T(".bmp"));
-
-			// Save as BMP first
-			CString bmpExt = _T("bmp");
-			saveDlg.m_ofn.filter = _T("Bitmap Image (*.bmp)|*.bmp||");
 
 			// Use CImage for PNG export (simpler)
 			CImage image;

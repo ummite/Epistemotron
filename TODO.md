@@ -16,7 +16,7 @@ Généré automatiquement par analyse statique du code.
 - [x] **OutputWnd.cpp::OnContextMenu()** - Fuite mémoire CMFCPopupMenu en cas d'échec
 - [x] **ClassView.cpp::OnContextMenu()** - Fuite mémoire CMFCPopupMenu en cas d'échec
 - [x] **OutputWnd.cpp::OnEditCopy/Clear()** - Fonctions non fonctionnelles (juste MessageBox)
-- [ ] **EpistemotronView.cpp::OnDraw()** - Simulation bloquante dans OnDraw(), fige l'UI
+- [x] **EpistemotronView.cpp::OnDraw()** - Simulation bloquante dans OnDraw(), fige l'UI - N/A: simulation s'exécute dans OnTimer(), pas dans OnDraw()
 - [x] **EpistemotronView.cpp::RenderUniverse3D()** - Division par zéro possible (m_Z >= cameraDistance)
 - [x] **EpistemotronView.cpp::RenderUniverse3D()** - Ellipses non remplies (SetBkColor inefficace)
 - [x] **Science/Universe.cpp::LoadBinaryStar()** - Formule de vitesse incorrecte (CORIGÉ: v=sqrt(G*m²/(M*a)))
@@ -27,12 +27,12 @@ Généré automatiquement par analyse statique du code.
 
 ## 🟠 MAJEUR - Visualisation & Animation
 
-- [ ] **EpistemotronView.cpp** - Pas de boucle d'animation (SetTimer)
-- [ ] **EpistemotronView.cpp** - Pas de vraie 3D, axe Z ignoré dans le rendu
-- [ ] **EpistemotronView.cpp** - Image rechargée depuis disque à chaque rafraîchissement
-- [ ] **EpistemotronView.cpp** - Pas de contrôle utilisateur (pause, vitesse, reset)
-- [ ] **MainFrm.cpp** - Pas de menu "Simulation" pour Start/Pause/Stop
-- [ ] **Universe.cpp::ExportPPM()** - Écrit toujours au même fichier `c:\temp\t.bmp`
+- [x] **EpistemotronView.cpp** - Pas de boucle d'animation (SetTimer) - Implémenté (OnTimer avec TIMER_ID)
+- [x] **EpistemotronView.cpp** - Pas de vraie 3D, axe Z ignoré dans le rendu - Implémenté (rotation 3D avec pitch/yaw/roll)
+- [x] **EpistemotronView.cpp** - Image rechargée depuis disque à chaque rafraîchissement - Implémenté (double buffering avec m_memDC/m_memBitmap)
+- [x] **EpistemotronView.cpp** - Pas de contrôle utilisateur (pause, vitesse, reset) - Implémenté (Start/Pause/Resume/Stop/Reset/Step)
+- [x] **MainFrm.cpp** - Pas de menu "Simulation" pour Start/Pause/Stop - Implémenté (menu Simulation complet)
+- [x] **Universe.cpp::ExportPPM()** - Écrit toujours au même fichier `c:\temp\t.bmp` - CORIGÉ: paramètre p_path ajouté (optionnel, défaut conservé)
 
 ## 🟠 MAJEUR - Problèmes de conception
 
@@ -41,9 +41,9 @@ Généré automatiquement par analyse statique du code.
 - [x] **Science/Universe.h:14** - `void Universe::Randomize();` syntaxe incorrecte
 - [x] **EpistemotronDoc.cpp** - Serialize() vide, pas de copy constructor, OnNewDocument() fuit mémoire
 - [x] **Simulation/Environment.h** - #define au lieu de constexpr (→ aligné avec Science/)
-- [ ] **CMakeLists.txt** - Référencement `Simulation/` vs `Science/` incohérent
-- [ ] **FileView.cpp/ClassView.cpp** - Données factices "FakeApp" au lieu de vrai projet
-- [ ] **ViewTree.h/cpp** - Classe inutile, wrapper vide de CTreeCtrl
+- [x] **CMakeLists.txt** - Référencement `Simulation/` vs `Science/` incohérent - DOCUMENTÉ: commentaire ajouté expliquant la dualité (Simulation/ pour CMake cross-platform, Science/ pour MFC)
+- [x] **FileView.cpp/ClassView.cpp** - Données factices "FakeApp" au lieu de vrai projet - Implémenté (FileView: fichiers réels, ClassView: classes et méthodes complètes)
+- [x] **ViewTree.h/cpp** - Classe inutile, wrapper vide de CTreeCtrl - Supprimé (remplacé par CTreeCtrl direct)
 
 ## 🟡 MOYEN - Performance
 
@@ -85,12 +85,12 @@ Généré automatiquement par analyse statique du code.
 - [x] **SimConfigDlg.cpp** - Magic numbers→constants (MIN/MAX_NUM_BODIES, etc.)
 - [x] **SimConfigDlg.cpp** - Empty handler removed (OnEnChangeEditDescription)
 - [x] **Science/Universe.cpp** - Allocation mémoire x2 inutile dans ExportPPM
-- [ ] **Science/EpistemotronView.cpp** - Image rechargée depuis disque à chaque rafraîchissement
+- [x] **Science/EpistemotronView.cpp** - Image rechargée depuis disque à chaque rafraîchissement - N/A: fichier n'existe pas (Science/ ne contient que Mass, Universe, Simulator, Environment)
 
 ## 🟢 FAIBLE - Qualité du code
 
-- [ ] **Science/Mass.h** - Commentaires redondants
-- [ ] **Science/Mass.cpp** - Destructeur vide inutile
+- [x] **Science/Mass.h** - Commentaires redondants - Nettoyé (commentaires supprimés pour les membres spéciaux par défaut)
+- [x] **Science/Mass.cpp** - Destructeur vide inutile - Déjà supprimé (destructeur par défaut dans l'en-tête)
 - [x] **Science/Simulator.cpp** - Code commenté abandonné
 - [x] **EpistemotronView.cpp** - Nom de méthode `RefreshThisShit()` inapproprié
 - [x] **Epistemotron.cpp** - Clé de registre générique "AppWizard-Generated Applications"
@@ -124,12 +124,34 @@ Généré automatiquement par analyse statique du code.
 - [x] **EpistemotronView.cpp** - Contrôles caméra (pan) - Implémenté (drag left mouse)
 - [x] **EpistemotronView.cpp** - Contrôles caméra (rotation) - Implémenté (right drag: pitch/yaw, middle drag: roll, R key: reset)
 - [x] **Science/Universe.cpp** - Intégrateur Velocity Verlet (meilleure conservation énergie) - Implémenté
-- [ ] **Science/Mass.cpp** - Détection collisions et fusion corps
+- [x] **Science/Mass.cpp** - Détection collisions et fusion corps - Déjà implémenté (GetPhysicalRadiusKM, IsCollidingWith, ProcessCollisionsSimple, visual feedback)
 - [x] **EpistemotronView.cpp** - Visualisation trajectoires (orbit trails) - Implémenté (500 points max, T key toggle)
 - [x] **Science/** - Scénarios prédéfinis (Solar System, Binary Star, Three-Body, Galaxy) - Implémenté avec 'S' key cycle
-- [ ] **EpistemotronView.cpp** - Export vidéo/image
-- [ ] **FileView.cpp** - Montrer les vrais fichiers du projet
-- [ ] **SimConfigDlg.cpp** - Créer la ressource .rc dans Visual Studio
+- [x] **EpistemotronView.cpp** - Export vidéo/image - Implémenté (Export Current Frame: BMP/PNG, Export Sequence: numbered BMP files)
+- [x] **FileView.cpp** - Montrer les vrais fichiers du projet - Implémenté (fichiers Epistemotron organisés par catégorie)
+- [x] **SimConfigDlg.cpp** - Créer la ressource .rc dans Visual Studio - Implémenté (IDD_SIM_CONFIG_DLG avec tous les contrôles)
+- [x] **EpistemotronView.cpp** - Raccourcis clavier Save/Load state - Implémenté (U=Save, L=Load)
+- [x] **EpistemotronView.cpp** - Minimap overview panel - Implémenté (M key toggle, 150x150px, shows all bodies + camera view)
+- [x] **EpistemotronView.cpp** - Elapsed time display - Implémenté (years/days/hours/minutes/seconds based on iteration * stepSize)
+- [x] **EpistemotronView.cpp** - Screenshot hotkey F12 - Implémenté (timestamp filename, auto-saves to screenshots folder)
 
 ---
-Dernière mise à jour: 2026-03-12 (Session 17 - Critical fixes: Randomize() X/Y/Z independence, Binary star velocity formula, M_PI portability, ModifyStyle no-op, SetTimer error handling, brush DeleteObject safety, trig pre-calc optimization)
+## 🆕 NOUVEAU - Fonctionnalités demandées par les utilisateurs
+
+- [x] **EpistemotronView.cpp** - Graphique temps réel de conservation d'énergie - Implémenté (G key toggle, shows total/kinetic/potential energy lines)
+- [x] **EpistemotronView.cpp** - Editor de scénarios personnalisés (ajouter/supprimer corps)
+  - [x] Part 1: Dialog UI (CustomScenarioDlg.h/cpp, resource definitions, listbox implementation)
+  - [x] Part 2: Menu command integration (ID_SCENARIO_CUSTOM, menu item, handler, Universe::Clear/AddBody)
+  - [x] Part 3: Polish dialog display (Z/VZ columns, 8-column format)
+  - [x] Part 4: Save/load custom scenarios to file (.esc format with Save/Load buttons)
+- [ ] **EpistemotronView.cpp** - Export vidéo (AVI/MKV) au lieu de séquence d'images
+- [x] **EpistemotronView.cpp** - Pause à itération spécifique (point d'arrêt) - Implémenté (BreakpointDlg, K key toggle, menu item, UI display)
+- [x] **EpistemotronView.cpp** - Contrôles de vitesse variable (0.1x à 10x) - Implémenté (m_speedMultiplier, SpeedUp/SlowDown cycle through 0.1x, 0.5x, 1x, 2x, 5x, 10x)
+- [x] **EpistemotronView.cpp** - Sauvegarde/chargement de vues caméra (préréglages) - Implémenté (S=save preset, N=next, B=prev)
+- [ ] **EpistemotronView.cpp** - Editor de propriétés des corps (masse, vitesse, position)
+- [ ] **EpistemotronView.cpp** - Comparaison de deux univers côte à côte
+- [x] **EpistemotronView.cpp** - Mode ralenti autour des événements (collisions) - Implémenté (W key toggle, 10% speed for 60 frames after collision, auto-restore)
+- [x] **EpistemotronView.cpp** - Sous-titres pour les corps (noms personnalisables) - Implémenté (Mass.m_Name, D key toggle, auto-generated fallback names)
+
+---
+Dernière mise à jour: 2026-03-25 11:00 (Session 46 complete - Mass labels implemented)

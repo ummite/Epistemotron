@@ -33,22 +33,13 @@ public:
     // Rule of Five - explicitly managing copy/move semantics
     // ============================================================================
 
-    /// Default constructor - initializes all fields to zero
-    Mass();
+     Mass();
 
-    /// Destructor
     ~Mass() = default;
 
-    /// Copy constructor - performs deep copy of trail data
     Mass(const Mass& other) = default;
-
-    /// Copy assignment operator - performs deep copy of trail data
     Mass& operator=(const Mass& other) = default;
-
-    /// Move constructor - transfers ownership of trail data
     Mass(Mass&& other) noexcept = default;
-
-    /// Move assignment operator - transfers ownership of trail data
     Mass& operator=(Mass&& other) noexcept = default;
 
     // ============================================================================
@@ -66,6 +57,12 @@ public:
     double m_VitesseZ;  ///< Z velocity component in m/s
 
     double m_MasseKG;  ///< Mass in kilograms (kg)
+
+    // ============================================================================
+    // Label/Name
+    // ============================================================================
+
+    CString m_Name;  ///< Custom name/label for this body (empty = auto-generated)
 
     // ============================================================================
     // Constants
