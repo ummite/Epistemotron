@@ -188,6 +188,102 @@ void TestTrace()
     std::cout << (passed ? "PASSED\n" : "FAILED\n");
 }
 
+/**
+ * @brief Test physical radius calculation
+ */
+void TestPhysicalRadius()
+{
+    std::cout << "\n=== Test: Physical Radius Calculation ===\n";
+
+    Mass earth;
+    earth.m_MasseKG = 5.972e24;  // Earth mass in kg
+
+    double radius = earth.GetPhysicalRadiusKM();
+    std::cout << "Earth-like body radius: " << std::fixed << std::setprecision(2) << radius << " km\n";
+    std::cout << "(Actual Earth radius: ~6371 km)\n";
+
+    // With density of 2000 kg/m^3, Earth-mass body should have radius around 8900 km
+    // This is larger than actual Earth because Earth's density (~5515 kg/m^3) is higher
+    bool passed = radius > 6000.0 && radius < 10000.0;
+    std::cout << (passed ? "PASSED\n" : "FAILED\n");
+}
+
+/**
+ * @brief Test collision detection - non-colliding bodies
+ */
+void TestCollisionNoCollision()
+{
+    std::cout << "\n=== Test: Collision Detection (No Collision) ===\n";
+
+    Mass m1, m2;
+    m1.m_MasseKG = 1e24;  // Smaller bodies
+    m1.m_X = 0.0; m1.m_Y = 0.0; m1.m_Z = 0.0;
+
+    m2.m_MasseKG = 1e24;
+    m2.m_X = 10000.0; m2.m_Y = 0.0; m2.m_Z = 0.0;  // 10,000 km apart
+
+    bool colliding = m1.IsCollidingWith(m2);
+    std::cout << "Bodies at 10,000 km distance: " << (colliding ? "COLLIDING" : "NOT COLLIDING") << "\n";
+
+    bool passed = !colliding;
+    std::cout << (passed ? "PASSED\n" : "FAILED\n");
+}
+
+/**
+ * @brief Test collision detection - colliding bodies
+ */
+void TestCollisionDetected()
+{
+    std::cout << "\n=== Test: Collision Detection (Collision) ===\n";
+
+    Mass m1, m2;
+    m1.m_MasseKG = 1e30;  // Solar mass - very large radius
+    m1.m_X = 0.0; m1.m_Y = 0.0; m1.m_Z = 0.0;
+
+    m2.m_MasseKG = 1e30;  // Solar mass
+    m2.m_X = 100.0; m2.m_Y = 0.0; m2.m_Z = 0.0;  // Only 100 km apart
+
+    double radius1 = m1.GetPhysicalRadiusKM();
+    double radius2 = m2.GetPhysicalRadiusKM();
+    std::cout << "Body 1 radius: " << std::fixed << std::setprecision(2) << radius1 << " km\n";
+    std::cout << "Body 2 radius: " << radius2 << " km\n";
+    std::cout << "Distance between centers: 100 km\n";
+
+    bool colliding = m1.IsCollidingWith(m2);
+    std::cout << "Collision detected: " << (colliding ? "YES" : "NO") << "\n";
+
+    bool passed = colliding;
+    std::cout << (passed ? "PASSED\n" : "FAILED\n");
+}
+
+/**
+ * @brief Test collision detection - edge case (just touching)
+ */
+void TestCollisionEdgeCase()
+{
+    std::cout << "\n=== Test: Collision Detection (Edge Case) ===\n";
+
+    Mass m1, m2;
+    m1.m_MasseKG = 5.972e24;  // Earth mass
+    m1.m_X = 0.0; m1.m_Y = 0.0; m1.m_Z = 0.0;
+
+    m2.m_MasseKG = 5.972e24;  // Earth mass
+    double radius = m1.GetPhysicalRadiusKM();
+    m2.m_X = radius * 2; m2.m_Y = 0.0; m2.m_Z = 0.0;  // Exactly touching (center-to-center = 2*radius)
+
+    std::cout << "Body radius: " << std::fixed << std::setprecision(2) << radius << " km\n";
+    std::cout << "Distance between centers: " << (radius * 2) << " km (exactly 2*radius)\n";
+
+    bool colliding = m1.IsCollidingWith(m2);
+    // At exactly 2*radius distance, bodies are touching but not overlapping
+    // Our collision check uses < not <=, so this should return false
+    std::cout << "Collision detected: " << (colliding ? "YES" : "NO") << "\n";
+    std::cout << "(Expected: NO - bodies are touching but not overlapping)\n";
+
+    bool passed = !colliding;
+    std::cout << (passed ? "PASSED\n" : "FAILED\n");
+}
+
 int main()
 {
     std::cout << "========================================\n";
@@ -199,6 +295,10 @@ int main()
     TestSolarSystem();
     TestMultiBody();
     TestTrace();
+    TestPhysicalRadius();
+    TestCollisionNoCollision();
+    TestCollisionDetected();
+    TestCollisionEdgeCase();
 
     // Also run the built-in test
     std::cout << "\n=== Running Simulator::Test() ===\n";

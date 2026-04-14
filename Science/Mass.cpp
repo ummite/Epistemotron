@@ -63,23 +63,76 @@ void Mass::Randomize()
 
 /// Update position based on velocity (kinematics step)
 /// New Position (km) = Position (km) + Velocity (m/s) * StepSize (s) / 1000
+/// @param stepSize Time step in seconds (must be positive)
 void Mass::EffectuerPasChangementPosition(int stepSize)
 {
+    // Input validation: stepSize must be positive
+    if (stepSize <= 0)
+    {
+        TRACE(_T("Warning: Invalid stepSize (%d) in EffectuerPasChangementPosition, skipping\n"), stepSize);
+        return;
+    }
+
+    // Check for NaN or Inf in velocity components
+    if (!std::isfinite(m_VitesseX) || !std::isfinite(m_VitesseY) || !std::isfinite(m_VitesseZ))
+    {
+        TRACE(_T("Warning: Non-finite velocity detected, clamping to zero\n"));
+        m_VitesseX = m_VitesseY = m_VitesseZ = 0.0;
+        return;
+    }
+
     m_X += (m_VitesseX * stepSize) / METERS_PER_KM;
     m_Y += (m_VitesseY * stepSize) / METERS_PER_KM;
     m_Z += (m_VitesseZ * stepSize) / METERS_PER_KM;
 }
 
 // Update velocity based on gravitational interactions with all other masses
+// @param universe Reference to the Universe containing all masses
+// @param stepSize Time step in seconds (must be positive)
 void Mass::EffectuerPasChangementVitesse(const Universe& universe, int stepSize)
 {
+    // Input validation: stepSize must be positive
+    if (stepSize <= 0)
+    {
+        TRACE(_T("Warning: Invalid stepSize (%d) in EffectuerPasChangementVitesse, skipping\n"), stepSize);
+        return;
+    }
+
+    // Input validation: universe must contain at least one body
+    const int massCount = universe.GetMassCount();
+    if (massCount <= 0)
+    {
+        TRACE(_T("Warning: Empty universe in EffectuerPasChangementVitesse, skipping\n"));
+        return;
+    }
+
     double velocityChangeX = 0.0;
     double velocityChangeY = 0.0;
     double velocityChangeZ = 0.0;
 
-    for (int i = 0; i < universe.GetMassCount(); i++)
+    for (int i = 0; i < massCount; i++)
     {
         const Mass& otherMass = universe.GetAt(i);
+
+        // Skip self-interaction
+        if (&otherMass == this)
+        {
+            continue;
+        }
+
+        // Validate other mass properties
+        if (otherMass.m_MasseKG <= 0.0)
+        {
+            TRACE(_T("Warning: Invalid mass (%f kg) at index %d, skipping\n"), otherMass.m_MasseKG, i);
+            continue;
+        }
+
+        // Check for NaN or Inf in other mass position
+        if (!std::isfinite(otherMass.m_X) || !std::isfinite(otherMass.m_Y) || !std::isfinite(otherMass.m_Z))
+        {
+            TRACE(_T("Warning: Non-finite position for mass at index %d, skipping\n"), i);
+            continue;
+        }
 
         const double deltaX = otherMass.m_X - m_X;
         const double deltaY = otherMass.m_Y - m_Y;
@@ -114,6 +167,12 @@ void Mass::EffectuerPasChangementVitesse(const Universe& universe, int stepSize)
         velocityChangeY += dirY * acceleration * stepSize;
         velocityChangeZ += dirZ * acceleration * stepSize;
     }
+
+    // Clamp velocity changes to prevent numerical instability
+    constexpr double MAX_VELOCITY_CHANGE = K_VitesseMAX;
+    velocityChangeX = std::clamp(velocityChangeX, -MAX_VELOCITY_CHANGE, MAX_VELOCITY_CHANGE);
+    velocityChangeY = std::clamp(velocityChangeY, -MAX_VELOCITY_CHANGE, MAX_VELOCITY_CHANGE);
+    velocityChangeZ = std::clamp(velocityChangeZ, -MAX_VELOCITY_CHANGE, MAX_VELOCITY_CHANGE);
 
     m_VitesseX += velocityChangeX;
     m_VitesseY += velocityChangeY;
@@ -189,8 +248,16 @@ void Mass::ClearTrail()
 }
 
 // Limit trail length by removing oldest points
+// @param maxLength Maximum number of points to retain (must be positive)
 void Mass::LimitTrailLength(int maxLength)
 {
+	// Input validation: maxLength must be positive
+	if (maxLength <= 0)
+	{
+		TRACE(_T("Warning: Invalid maxLength (%d) in LimitTrailLength, using default\n"), maxLength);
+		maxLength = MAX_TRAIL_LENGTH;
+	}
+
 	if (static_cast<int>(m_trail.size()) <= maxLength)
 	{
 		return;

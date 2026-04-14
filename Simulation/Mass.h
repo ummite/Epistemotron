@@ -62,4 +62,29 @@ public:
      * @return Debug string with position and velocity info
      */
     std::string Trace(const class Universe& p_roUniverse) const;
+
+    // ============================================================================
+    // Collision Detection
+    // ============================================================================
+
+    /**
+     * @brief Calculate the physical radius of this body based on its mass and density
+     * @return Radius in kilometers
+     */
+    double GetPhysicalRadiusKM() const;
+
+    /**
+     * @brief Check if this body is colliding with another body
+     * @param other The other Mass object to check against
+     * @return true if the bodies are touching or overlapping
+     */
+    bool IsCollidingWith(const Mass& other) const;
+
+    // ============================================================================
+    // Constants
+    // ============================================================================
+
+    /// Average density for celestial bodies (kg/m^3)
+    /// Used to calculate realistic radius from mass: r = (3*m / (4*pi*rho))^(1/3)
+    static constexpr double DEFAULT_DENSITY_KG_M3 = 2000.0;
 };

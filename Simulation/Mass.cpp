@@ -116,3 +116,41 @@ std::string Mass::Trace(const Universe& p_roUniverse) const
         << " Speed X: " << m_VitesseX << " Y: " << m_VitesseY;
     return oss.str();
 }
+
+// ============================================================================
+// Collision Detection
+// ============================================================================
+
+// Calculate the physical radius based on mass and assumed density
+// Using sphere volume formula: V = (4/3) * pi * r^3
+// And density: rho = m / V, so r = (3 * m / (4 * pi * rho))^(1/3)
+double Mass::GetPhysicalRadiusKM() const
+{
+    constexpr double PI = 3.14159265358979323846;
+    constexpr double FOUR_THIRDS_PI = (4.0 / 3.0) * PI;
+    constexpr double METERS_PER_KM = 1000.0;
+
+    if (m_MasseKG <= 0.0)
+    {
+        return 0.0;
+    }
+
+    // Calculate radius in meters first
+    const double radiusMeters = std::cbrt(m_MasseKG / (FOUR_THIRDS_PI * DEFAULT_DENSITY_KG_M3));
+
+    // Convert to kilometers
+    return radiusMeters / METERS_PER_KM;
+}
+
+// Check if this body is colliding with another body
+// Collision occurs when the distance between centers is less than the sum of their radii
+bool Mass::IsCollidingWith(const Mass& other) const
+{
+    const double thisRadius = GetPhysicalRadiusKM();
+    const double otherRadius = other.GetPhysicalRadiusKM();
+    const double collisionDistance = thisRadius + otherRadius;
+
+    const double actualDistance = Distance(other);
+
+    return actualDistance < collisionDistance;
+}

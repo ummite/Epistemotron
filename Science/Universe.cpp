@@ -241,6 +241,26 @@ void Universe::Clear()
 
 void Universe::AddBody(const Mass& body)
 {
+	// Input validation: check for valid mass
+	if (body.m_MasseKG <= 0.0)
+	{
+		TRACE(_T("Warning: Attempting to add body with invalid mass (%f kg), skipping\n"), body.m_MasseKG);
+		return;
+	}
+
+	// Input validation: check for finite position and velocity
+	if (!std::isfinite(body.m_X) || !std::isfinite(body.m_Y) || !std::isfinite(body.m_Z))
+	{
+		TRACE(_T("Warning: Attempting to add body with non-finite position, skipping\n"));
+		return;
+	}
+
+	if (!std::isfinite(body.m_VitesseX) || !std::isfinite(body.m_VitesseY) || !std::isfinite(body.m_VitesseZ))
+	{
+		TRACE(_T("Warning: Attempting to add body with non-finite velocity, skipping\n"));
+		return;
+	}
+
 	m_arrMasses.Add(body);
 }
 
@@ -453,6 +473,20 @@ static void ComputeAccelerations(
 
 Universe* Universe::GenerateSimulationStep(int p_iStepSize)
 {
+	// Input validation: stepSize must be positive
+	if (p_iStepSize <= 0)
+	{
+		TRACE(_T("Warning: Invalid stepSize (%d) in GenerateSimulationStep, returning nullptr\n"), p_iStepSize);
+		return nullptr;
+	}
+
+	// Input validation: universe must contain at least one body
+	if (m_arrMasses.IsEmpty())
+	{
+		TRACE(_T("Warning: Empty universe in GenerateSimulationStep, returning nullptr\n"));
+		return nullptr;
+	}
+
 	Universe* poUniverse = new Universe(static_cast<int>(m_arrMasses.GetSize()));
 	poUniverse->m_iIteration = m_iIteration + 1;
 	poUniverse->m_arrMasses.Copy(m_arrMasses);
@@ -470,12 +504,32 @@ void Universe::Randomize()
 }
 
 // Export universe visualization as PPM/BMP
+// @param p_iWidth Image width in pixels (must be positive)
+// @param p_iHeight Image height in pixels (must be positive)
+// @param p_path Output file path (optional, uses default if not provided)
 void Universe::ExportPPM(int p_iWidth, int p_iHeight, const wchar_t* p_path)
 {
+	// Input validation: dimensions must be positive
+	if (p_iWidth <= 0 || p_iHeight <= 0)
+	{
+		TRACE(_T("Warning: Invalid image dimensions (%dx%d) in ExportPPM, skipping\n"), p_iWidth, p_iHeight);
+		return;
+	}
+
+	// Input validation: dimensions must be reasonable (prevent memory exhaustion)
+	constexpr int MAX_DIMENSION = 16384;
+	if (p_iWidth > MAX_DIMENSION || p_iHeight > MAX_DIMENSION)
+	{
+		TRACE(_T("Warning: Image dimensions (%dx%d) exceed maximum (%d), skipping\n"),
+			  p_iWidth, p_iHeight, MAX_DIMENSION);
+		return;
+	}
+
 	// Use provided path or default
 	const wchar_t* outputPath = (p_path != nullptr && p_path[0] != '\0') ? p_path : PPMExportConstants::DefaultOutputPath;
 	if (static_cast<int>(m_arrMasses.GetSize()) < 1)
 	{
+		TRACE(_T("Info: Empty universe in ExportPPM, skipping export\n"));
 		return;  // Nothing to export
 	}
 
@@ -539,12 +593,35 @@ void Universe::ExportPPM(int p_iWidth, int p_iHeight, const wchar_t* p_path)
 
 void Universe::SimulateFrom(const Universe& p_roUniverse, int p_iStepSize)
 {
+	// Input validation: stepSize must be positive
+	if (p_iStepSize <= 0)
+	{
+		TRACE(_T("Warning: Invalid stepSize (%d) in SimulateFrom, skipping\n"), p_iStepSize);
+		return;
+	}
+
+	// Input validation: universes must have same number of bodies
+	const int sourceCount = p_roUniverse.GetMassCount();
+	const int targetCount = static_cast<int>(m_arrMasses.GetSize());
+	if (sourceCount != targetCount)
+	{
+		TRACE(_T("Warning: Universe size mismatch in SimulateFrom (source: %d, target: %d), skipping\n"),
+			  sourceCount, targetCount);
+		return;
+	}
+
+	if (sourceCount < 1)
+	{
+		TRACE(_T("Warning: Empty universe in SimulateFrom, skipping\n"));
+		return;
+	}
+
 	// Symplectic Euler integration with Newton's 3rd law optimization
 	// This preserves energy better than standard Euler and reduces computation by 50%
 	// For each mass, we use the OLD positions (from p_roUniverse) to compute forces,
 	// then update velocities, then update positions using new velocities.
 
-	const int nMassCount = static_cast<int>(m_arrMasses.GetSize());
+	const int nMassCount = targetCount;
 	const double dt = static_cast<double>(p_iStepSize);
 
 	// Extract positions and masses from source universe for efficient computation
